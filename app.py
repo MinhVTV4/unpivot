@@ -2,32 +2,51 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# Cấu hình trang
-st.set_page_config(page_title="Xử lý Excel Ngang sang Dọc", layout="wide")
+# Cấu hình trang web
+st.set_page_config(page_title="Chuyển đổi Excel Ngang sang Dọc", layout="wide", page_icon="📊")
+
+# --- CSS ĐỂ GIAO DIỆN ĐẸP HƠN ---
+st.markdown("""
+<style>
+    .stDataFrame { border: 1px solid #e6e9ef; border-radius: 5px; }
+    .main { background-color: #f8f9fa; }
+</style>
+""", unsafe_allow_html=True)
 
 def transform_horizontal_to_vertical(df):
     """
-    Logic cốt lõi: Biến các cột Ngày/Chứng từ thành hàng dọc.
-    Dựa theo file hang3.html: 
-    - 3 hàng đầu chứa thông tin header (Ngày, Mã, Nội dung)
-    - Cột đầu tiên chứa Tên khoản mục
+    Hàm xử lý logic: Xoay bảng từ ngang sang dọc.
+    - Hàng 1 (index 0): Ngày Giao dịch
+    - Hàng 2 (index 1): Dòng mã
+    - Hàng 3 (index 2): Nội dung
+    - Cột 1 (index 0): Tên khoản mục
     """
     try:
-        # Lấy thông tin header từ 3 hàng đầu
-        headers = df.iloc[0:3, 1:] # Bỏ cột đầu tiên
-        data_rows = df.iloc[3:, :] # Dữ liệu bắt đầu từ hàng 4
+        # 1. Tách header (3 hàng đầu, bỏ cột đầu tiên)
+        headers = df.iloc[0:3, 1:]
+        
+        # 2. Tách dữ liệu chính (Từ hàng 4 trở đi)
+        data_rows = df.iloc[3:, :]
         
         results = []
         
-        # Duyệt qua từng hàng dữ liệu (Khoản mục)
+        # Duyệt qua từng hàng (Khoản mục)
         for _, row in data_rows.iterrows():
-            item_name = row[0] # Tên khoản mục ở cột A
+            item_name = str(row[0]).strip() # Lấy tên khoản mục ở cột A
             
-            # Duyệt qua từng cột (tương ứng với từng ngày/chứng từ)
-            for col_idx in range(1, len(df.columns)):
-                amount = row[col_idx]
+            # Nếu tên khoản mục trống thì bỏ qua
+            if not item_name or item_name == 'nan':
+                continue
                 
-                # Chỉ lấy các dòng có phát sinh tiền > 0
+            # Duyệt qua từng cột (tương ứng với các cột Ngày/Mã/Nội dung)
+            for col_idx in range(1, len(df.columns)):
+                amount_raw = row[col_idx]
+                
+                # --- KHẮC PHỤC LỖI: Ép kiểu dữ liệu an toàn ---
+                # Chuyển đổi về dạng số, nếu là chữ hoặc ký tự lạ sẽ biến thành NaN
+                amount = pd.to_numeric(amount_raw, errors='coerce')
+                
+                # Chỉ lấy những ô có số tiền hợp lệ và lớn hơn 0
                 if pd.notnull(amount) and amount > 0:
                     results.append({
                         "Ngày Giao dịch": headers.iloc[0, col_idx-1],
@@ -37,57 +56,71 @@ def transform_horizontal_to_vertical(df):
                         "Số tiền": amount
                     })
         
-        return pd.DataFrame(results)
+        # Chuyển danh sách kết quả thành DataFrame
+        if not results:
+            return pd.DataFrame()
+            
+        final_df = pd.DataFrame(results)
+        
+        # Định dạng lại cột Ngày nếu có (tùy chọn)
+        # final_df['Ngày Giao dịch'] = pd.to_datetime(final_df['Ngày Giao dịch']).dt.strftime('%d/%m/%Y')
+        
+        return final_df
+        
     except Exception as e:
-        st.error(f"Lỗi cấu trúc file: {e}")
+        st.error(f"⚠️ Lỗi trong quá trình xử lý logic: {e}")
         return None
 
-# --- GIAO DIỆN ---
-st.title("🔄 Chuyển đổi Excel Ngang sang Dọc (Unpivot)")
-st.info("Hệ thống sẽ tự động nhận diện 3 hàng đầu là Ngày, Mã, Nội dung và chuyển thành bảng dọc.")
+# --- GIAO DIỆN NGƯỜI DÙNG (UI) ---
+st.title("🔄 Công cụ Unpivot Excel Chuyên nghiệp")
+st.markdown("Chuyển đổi các bảng kê ngang (Ma trận) thành dạng danh sách dọc để dễ dàng quản lý và lọc dữ liệu.")
 
-uploaded_file = st.file_uploader("Tải file Excel cần xử lý", type=["xlsx"])
+# 1. Khu vực Upload File
+with st.container():
+    uploaded_file = st.file_uploader("Tải lên file Excel (.xlsx)", type=["xlsx"])
 
 if uploaded_file:
-    # Đọc file (giữ nguyên định dạng thô không lấy header tự động)
+    # Đọc file thô không lấy header
     df_raw = pd.read_excel(uploaded_file, header=None)
     
-    st.subheader("1. Dữ liệu gốc (Bảng ngang)")
+    st.subheader("📋 1. Xem trước dữ liệu gốc")
     st.dataframe(df_raw.head(10), use_container_width=True)
-
-    if st.button("🚀 Bắt đầu chuyển đổi"):
-        with st.spinner("Đang tính toán..."):
-            df_vertical = transform_horizontal_to_vertical(df_raw)
+    
+    # 2. Nút bấm xử lý
+    if st.button("🚀 Bắt đầu chuyển đổi ngay", type="primary"):
+        with st.spinner("Đang xử lý và lọc dữ liệu..."):
+            df_result = transform_horizontal_to_vertical(df_raw)
             
-            if df_vertical is not None:
-                st.subheader("2. Kết quả sau khi chuyển đổi (Bảng dọc)")
-                st.success(f"Đã xử lý xong {len(df_vertical)} dòng dữ liệu.")
+            if df_result is not None and not df_result.empty:
+                st.subheader("✅ 2. Kết quả sau khi chuyển dọc")
+                st.success(f"Đã tìm thấy {len(df_result)} dòng có phát sinh số tiền.")
                 
-                # Hiển thị kết quả
-                st.dataframe(df_vertical, use_container_width=True)
+                # Hiển thị bảng kết quả
+                st.dataframe(df_result, use_container_width=True)
                 
-                # Nút tải file
+                # 3. Nút tải file Excel
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df_vertical.to_excel(writer, index=False, sheet_name='Ket_qua_doc')
-                
+                    df_result.to_excel(writer, index=False, sheet_name='Du_lieu_doc')
+                    
+                    # Tự động căn chỉnh độ rộng cột cho file Excel tải về
+                    worksheet = writer.sheets['Du_lieu_doc']
+                    for i, col in enumerate(df_result.columns):
+                        column_len = max(df_result[col].astype(str).str.len().max(), len(col)) + 2
+                        worksheet.set_column(i, i, column_len)
+
                 st.download_button(
-                    label="📥 Tải file kết quả Excel",
+                    label="📥 Tải file kết quả Excel về máy",
                     data=output.getvalue(),
-                    file_name="excel_vertical_result.xlsx",
+                    file_name="ket_qua_chuyen_doi.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+            elif df_result is not None and df_result.empty:
+                st.warning("⚠️ Không tìm thấy dữ liệu nào có số tiền lớn hơn 0.")
+else:
+    # Hướng dẫn khi chưa có file
+    st.info("💡 Vui lòng tải lên file Excel có cấu trúc 3 hàng đầu là tiêu đề (Ngày, Mã, Nội dung) để bắt đầu.")
 
-# --- PHẦN MỞ RỘNG: AI HỖ TRỢ PHÂN TÍCH (Tùy chọn giống file HTML) ---
-st.sidebar.header("AI Assistant")
-api_key = st.sidebar.text_input("Nhập Gemini API Key (nếu muốn dùng AI)", type="password")
-if api_key and uploaded_file:
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    
-    user_q = st.sidebar.text_area("Hỏi AI về dữ liệu này:")
-    if st.sidebar.button("Hỏi AI"):
-        prompt = f"Dưới đây là dữ liệu Excel: {df_raw.iloc[:10, :10].to_string()}... \nCâu hỏi: {user_q}"
-        response = model.generate_content(prompt)
-        st.sidebar.write(response.text)
+# Chân trang
+st.markdown("---")
+st.caption("Ứng dụng được xây dựng dựa trên cấu trúc xử lý của hang3.html")
