@@ -5,117 +5,122 @@ import json
 import os
 
 # Cấu hình trang
-st.set_page_config(page_title="Excel Pro Transformer", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="Excel Hub Pro", layout="wide", page_icon="📈")
 
-CONFIG_FILE = "profiles_config.json"
+CONFIG_FILE = "app_profiles.json"
 
-# --- HÀM LƯU/ĐỌC CẤU HÌNH VÀO FILE ---
+# --- HÀM QUẢN LÝ CẤU HÌNH ---
 def load_profiles():
     if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {"Mẫu SDH Gốc": {"h_rows": 3, "id_col": 1, "d_start": 5}}
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except: return {}
+    return {"Mẫu SDH Mặc định": {"h_rows": 3, "id_col": 1, "d_start": 5}}
 
 def save_profiles(profiles):
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(profiles, f, ensure_ascii=False, indent=4)
 
-# Khởi tạo danh sách cấu hình
 if 'profiles' not in st.session_state:
     st.session_state['profiles'] = load_profiles()
 
-# --- HÀM XỬ LÝ UNPIVOT TỔNG QUÁT ---
-def universal_unpivot(df, h_rows, id_col, d_start):
+# --- MODULE 1: LOGIC UNPIVOT ---
+def run_unpivot(df, h_rows, id_col, d_start):
     try:
         headers = df.iloc[0:h_rows, id_col + 1:]
         data_body = df.iloc[d_start - 1:, :]
-        
         results = []
         for _, row in data_body.iterrows():
             id_val = str(row[id_col]).strip()
             if not id_val or id_val.lower() in ['nan', 'none']: continue
-            
             for col_idx in range(id_col + 1, len(df.columns)):
                 val = pd.to_numeric(row[col_idx], errors='coerce')
                 if pd.notnull(val) and val > 0:
-                    entry = {"Đối tượng/Tên": id_val, "Số tiền": val}
+                    entry = {"Đối tượng": id_val, "Giá trị": val}
                     for i in range(h_rows):
                         entry[f"Tiêu đề {i+1}"] = headers.iloc[i, col_idx - (id_col + 1)]
                     results.append(entry)
         return pd.DataFrame(results)
     except Exception as e:
-        st.error(f"Lỗi xử lý: {e}")
+        st.error(f"Lỗi Unpivot: {e}")
         return None
 
-# --- GIAO DIỆN CHÍNH ---
-st.title("🗂️ Trình xử lý Excel Ma trận Vạn năng")
-st.markdown("Hỗ trợ xử lý file hàng ngàn dòng, lưu cấu hình và xuất mẫu in tự động.")
+# --- GIAO DIỆN SIDEBAR ---
+st.sidebar.title("🎮 Menu Chức năng")
+app_mode = st.sidebar.selectbox("Chọn nghiệp vụ cần làm:", ["🔄 Unpivot Vạn năng", "🔍 Đối soát & So khớp"])
 
-# SIDEBAR: QUẢN LÝ CẤU HÌNH
-with st.sidebar:
-    st.header("⚙️ Thiết lập loại File")
+# --- CHỨC NĂNG 1: UNPIVOT ---
+if app_mode == "🔄 Unpivot Vạn năng":
+    st.title("🔄 Trình Unpivot Excel Ma trận")
+    st.markdown("Biến mọi bảng ngang phức tạp thành danh sách dọc để đối soát.")
     
-    # Chọn Profile
-    profile_names = list(st.session_state['profiles'].keys())
-    selected_p = st.selectbox("Chọn loại file đã lưu:", profile_names)
-    
-    # Lấy thông số từ profile đã chọn
-    cfg = st.session_state['profiles'][selected_p]
-    
-    st.markdown("---")
-    st.subheader("Tùy chỉnh cấu hình")
-    h_rows = st.number_input("Số hàng tiêu đề:", value=cfg['h_rows'])
-    id_col = st.number_input("Cột chứa Tên (A=0, B=1...):", value=cfg['id_col'])
-    d_start = st.number_input("Dữ liệu bắt đầu từ hàng:", value=cfg['d_start'])
-    
-    st.markdown("---")
-    new_p_name = st.text_input("Lưu cấu hình này với tên mới:", placeholder="Ví dụ: File Kho vận")
-    if st.button("💾 Lưu cấu hình"):
-        st.session_state['profiles'][new_p_name] = {"h_rows": h_rows, "id_col": id_col, "d_start": d_start}
-        save_profiles(st.session_state['profiles'])
-        st.success(f"Đã lưu '{new_p_name}' thành công!")
-        st.rerun()
+    with st.sidebar:
+        st.header("⚙️ Cấu hình Profile")
+        p_names = list(st.session_state['profiles'].keys())
+        sel_p = st.selectbox("Chọn Profile:", p_names)
+        cfg = st.session_state['profiles'][sel_p]
+        
+        h_r = st.number_input("Số hàng tiêu đề:", value=cfg['h_rows'])
+        i_c = st.number_input("Cột Định danh (B=1):", value=cfg['id_col'])
+        d_s = st.number_input("Dòng bắt đầu dữ liệu:", value=cfg['d_start'])
+        
+        new_p = st.text_input("Lưu thành Profile mới:")
+        if st.button("💾 Lưu cấu hình"):
+            st.session_state['profiles'][new_p] = {"h_rows": h_r, "id_col": i_c, "d_start": d_s}
+            save_profiles(st.session_state['profiles'])
+            st.success("Đã lưu!")
 
-# KHU VỰC TẢI FILE
-uploaded_file = st.file_uploader("Tải lên file Excel cần xử lý", type=["xlsx", "xls"])
+    file_up = st.file_uploader("Tải file ma trận ngang", type=["xlsx"])
+    if file_up:
+        df_raw = pd.read_excel(file_up, header=None)
+        st.subheader("Xem trước dữ liệu")
+        st.dataframe(df_raw.head(10))
+        
+        if st.button("🚀 Thực hiện Unpivot"):
+            res = run_unpivot(df_raw, h_r, i_c, d_s)
+            if res is not None:
+                st.success(f"Xong! {len(res)} dòng.")
+                st.dataframe(res)
+                out = BytesIO()
+                res.to_excel(out, index=False)
+                st.download_button("📥 Tải File Đọc (.xlsx)", out.getvalue(), "unpivot_result.xlsx")
 
-if uploaded_file:
-    df_raw = pd.read_excel(uploaded_file, header=None)
-    
-    st.subheader("1. Kiểm tra cấu trúc File (Preview)")
-    st.dataframe(df_raw.head(15), use_container_width=True)
-    
-    st.write(f"👉 Đang dùng cấu hình: **{selected_p}**")
+# --- CHỨC NĂNG 2: ĐỐI SOÁT ---
+elif app_mode == "🔍 Đối soát & So khớp":
+    st.title("🔍 Hệ thống Đối soát & Cảnh báo")
+    st.markdown("So sánh 2 file (Ví dụ: File Gốc vs File Thực tế) để tìm chênh lệch.")
 
-    if st.button("🚀 Bắt đầu chuyển đổi ngay", type="primary"):
-        with st.spinner("Đang 'bẻ' bảng ngang sang dọc..."):
-            df_result = universal_unpivot(df_raw, h_rows, id_col, d_start)
+    c1, c2 = st.columns(2)
+    with c1:
+        f_master = st.file_uploader("Tải File Master (Gốc)", type=["xlsx"])
+    with c2:
+        f_check = st.file_uploader("Tải File Cần đối soát", type=["xlsx"])
+
+    if f_master and f_check:
+        df_m = pd.read_excel(f_master)
+        df_c = pd.read_excel(f_check)
+        
+        st.sidebar.header("⚙️ Cài đặt Đối soát")
+        key = st.sidebar.selectbox("Cột Mã khóa (để khớp nhau):", df_m.columns)
+        val = st.sidebar.selectbox("Cột Số tiền để so sánh:", df_m.columns)
+
+        if st.button("🚀 Bắt đầu đối soát"):
+            # Logic Đối soát
+            merged = pd.merge(df_m, df_c[[key, val]], on=key, how='outer', suffixes=('_Gốc', '_ThựcTế'))
+            merged = merged.fillna(0)
+            merged['Chênh lệch'] = merged[f'{val}_Gốc'] - merged[f'{val}_ThựcTế']
             
-            if df_result is not None and not df_result.empty:
-                st.success(f"Đã xử lý xong {len(df_result)} dòng dữ liệu!")
-                
-                tab1, tab2 = st.tabs(["📊 Dữ liệu Đích (Dọc)", "🖨️ Xuất Mẫu In Nhanh"])
-                
-                with tab1:
-                    st.dataframe(df_result, use_container_width=True)
-                    # Tải file CSV
-                    csv = df_result.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button("📥 Tải File Đích (.csv)", csv, "ket_qua_doc.csv")
-                
-                with tab2:
-                    st.info("Hệ thống sẽ tạo file Excel có tiêu đề và kẻ bảng tự động dựa trên kết quả dọc.")
-                    # Tạo file Excel đẹp
-                    out_excel = BytesIO()
-                    with pd.ExcelWriter(out_excel, engine='xlsxwriter') as writer:
-                        df_result.to_excel(writer, index=False, sheet_name='Mau_In')
-                        workbook = writer.book
-                        worksheet = writer.sheets['Mau_In']
-                        # Định dạng đơn giản
-                        fmt_header = workbook.add_format({'bold': True, 'bg_color': '#D9D9D9', 'border': 1})
-                        for col_num, value in enumerate(df_result.columns.values):
-                            worksheet.write(0, col_num, value, fmt_header)
-                            worksheet.set_column(col_num, col_num, 20)
-                    
-                    st.download_button("📥 Tải Mẫu In Excel", out_excel.getvalue(), "mau_in_nhanh.xlsx")
-            else:
-                st.warning("Không tìm thấy dữ liệu phát sinh > 0.")
+            # Cảnh báo rủi ro (Outliers)
+            mean_diff = merged['Chênh lệch'].mean()
+            std_diff = merged['Chênh lệch'].std()
+            merged['Cảnh báo'] = merged['Chênh lệch'].apply(lambda x: '🚩 Sai lệch lớn' if abs(x) > (mean_diff + 2*std_diff) else 'Bình thường')
+
+            st.subheader("Kết quả đối soát")
+            st.dataframe(merged.style.applymap(lambda x: 'background-color: #ffcccc' if x != 0 else '', subset=['Chênh lệch']))
+            
+            # Xuất báo cáo lỗi
+            errors = merged[merged['Chênh lệch'] != 0]
+            out_err = BytesIO()
+            errors.to_excel(out_err, index=False)
+            st.download_button("📥 Tải Báo cáo Chênh lệch", out_err.getvalue(), "bao_cao_chenh_lech.xlsx")
