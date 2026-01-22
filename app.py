@@ -4,13 +4,14 @@ from io import BytesIO
 import json
 import os
 import plotly.express as px
-import difflib # Thư viện dùng để so khớp mờ
+import difflib
 
 # --- CẤU HÌNH HỆ THỐNG ---
-st.set_page_config(page_title="Excel Hub Pro v6", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="Excel Hub Pro v7", layout="wide", page_icon="🚀")
 
-CONFIG_FILE = "excel_profiles_v6.json"
+CONFIG_FILE = "excel_profiles_v7.json"
 
+# Hàm quản lý cấu hình Profile
 def load_profiles():
     if os.path.exists(CONFIG_FILE):
         try:
@@ -28,8 +29,7 @@ if 'profiles' not in st.session_state:
 
 # --- HÀM SO KHỚP MỜ (FUZZY MATCHING) ---
 def find_fuzzy_match(name, choices, cutoff=0.6):
-    """Tìm tên gần giống nhất trong danh sách choices"""
-    matches = difflib.get_close_matches(name, choices, n=1, cutoff=cutoff)
+    matches = difflib.get_close_matches(str(name), [str(c) for c in choices], n=1, cutoff=cutoff)
     return matches[0] if matches else None
 
 # --- MODULE XỬ LÝ UNPIVOT ---
@@ -52,102 +52,126 @@ def run_unpivot(df, h_rows, id_col, d_start, sheet_name=None):
         return pd.DataFrame(results)
     except: return None
 
-# --- SIDEBAR MENU ---
-st.sidebar.title("🎮 Siêu công cụ Excel")
-menu = st.sidebar.radio("Chọn nghiệp vụ:", ["🔄 Unpivot & Dashboard", "🔍 Đối soát & So khớp mờ"])
+# --- GIAO DIỆN SIDEBAR ---
+st.sidebar.title("🎮 Trung tâm Excel Pro")
+menu = st.sidebar.radio("Nghiệp vụ:", ["🔄 Unpivot & Dashboard", "🔍 Đối soát & So khớp mờ"])
 
 # --- MODULE 1: UNPIVOT & DASHBOARD ---
 if menu == "🔄 Unpivot & Dashboard":
-    st.title("🔄 Unpivot & Phân tích Dashboard")
-    file_up = st.file_uploader("Tải file Excel ma trận", type=["xlsx", "xls"])
+    st.title("🔄 Chuyển đổi Ma trận & Phân tích Dashboard")
+    
+    file_up = st.file_uploader("1. Tải file Excel ma trận", type=["xlsx", "xls"], key="unp_up")
     
     if file_up:
         xl = pd.ExcelFile(file_up)
         sheet_names = xl.sheet_names
+        
         with st.sidebar:
             st.header("⚙️ Cấu hình Profile")
             p_names = list(st.session_state['profiles'].keys())
             sel_p = st.selectbox("Sử dụng Profile:", p_names)
             cfg = st.session_state['profiles'][sel_p]
-            h_r, i_c, d_s = cfg['h_rows'], cfg['id_col'], cfg['d_start']
             
-        mode = st.radio("Chế độ:", ["Xử lý 1 Sheet", "Xử lý Toàn bộ Sheet"], horizontal=True)
+            h_r = st.number_input("Số hàng tiêu đề:", value=cfg['h_rows'])
+            i_c = st.number_input("Cột Tên (A=0, B=1...):", value=cfg['id_col'])
+            d_s = st.number_input("Dòng bắt đầu data:", value=cfg['d_start'])
+            
+            new_p_name = st.text_input("Tên profile mới:")
+            if st.button("💾 Lưu Cấu hình"):
+                st.session_state['profiles'][new_p_name] = {"h_rows": h_r, "id_col": i_c, "d_start": d_s}
+                save_profiles(st.session_state['profiles'])
+                st.success("Đã lưu vĩnh viễn!")
+
+        mode = st.radio("Chế độ xử lý:", ["Xử lý 1 Sheet (Có Preview)", "Xử lý TẤT CẢ Sheet (Gộp dữ liệu)"], horizontal=True)
+
         res_final = None
-        if mode == "Xử lý 1 Sheet":
+        if mode == "Xử lý 1 Sheet (Có Preview)":
             sel_s = st.selectbox("Chọn Sheet:", sheet_names)
             df_raw = pd.read_excel(file_up, sheet_name=sel_s, header=None)
-            if st.button("🚀 Chạy Unpivot"):
+            st.subheader(f"📋 Preview dữ liệu: {sel_s}")
+            st.dataframe(df_raw.head(15), use_container_width=True)
+            if st.button("🚀 Chạy Unpivot Sheet này"):
                 res_final = run_unpivot(df_raw, h_r, i_c, d_s, sheet_name=sel_s)
         else:
-            if st.button("🚀 Chạy Tất cả Sheet & Gộp"):
-                all_res = [run_unpivot(pd.read_excel(file_up, s, header=None), h_r, i_c, d_s, s) for s in sheet_names]
+            st.info(f"Hệ thống sẽ gộp {len(sheet_names)} sheet.")
+            if st.button("🚀 Chạy gộp tất cả Sheet"):
+                all_res = []
+                for s in sheet_names:
+                    df_s = pd.read_excel(file_up, sheet_name=s, header=None)
+                    all_res.append(run_unpivot(df_s, h_r, i_c, d_s, s))
                 res_final = pd.concat([r for r in all_res if r is not None], ignore_index=True)
 
-        if res_final is not None:
-            st.success("Xử lý thành công!")
-            # Dashboard
-            c1, c2 = st.columns(2)
-            with c1:
+        if res_final is not None and not res_final.empty:
+            st.success(f"Xử lý thành công {len(res_final)} dòng dữ liệu!")
+            
+            # DASHBOARD
+            st.markdown("---")
+            st.subheader("📊 Dashboard Phân tích")
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
                 top_data = res_final.groupby("Đối tượng")["Số tiền"].sum().nlargest(10).reset_index()
-                st.plotly_chart(px.bar(top_data, x="Đối tượng", y="Số tiền", title="Top 10 Đối tượng"), use_container_width=True)
-            with c2:
+                st.plotly_chart(px.bar(top_data, x="Đối tượng", y="Số tiền", title="Top 10 người nhận tiền nhiều nhất"), use_container_width=True)
+            with col_d2:
                 pie_col = "Tiêu đề 1" if "Tiêu đề 1" in res_final.columns else "Đối tượng"
                 pie_data = res_final.groupby(pie_col)["Số tiền"].sum().reset_index()
-                st.plotly_chart(px.pie(pie_data, values="Số tiền", names=pie_col, title="Cơ cấu tiền"), use_container_width=True)
-            st.dataframe(res_final)
+                st.plotly_chart(px.pie(pie_data, values="Số tiền", names=pie_col, title="Cơ cấu theo danh mục"), use_container_width=True)
+            
+            # HIỂN THỊ DATA & NÚT TẢI
+            st.dataframe(res_final, use_container_width=True)
+            out = BytesIO()
+            res_final.to_excel(out, index=False)
+            st.download_button(label="📥 Tải kết quả xử lý (.xlsx)", data=out.getvalue(), file_name="Ket_qua_Unpivot.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # --- MODULE 2: ĐỐI SOÁT & SO KHỚP MỜ ---
-elif menu == "🔍 Đối soát & So khớp mờ":
-    st.title("🔍 Đối soát dữ liệu thông minh")
-    st.markdown("Hỗ trợ tìm kiếm các dòng dữ liệu gần giống nhau khi tên gọi không khớp 100%.")
+elif menu == "🔍 Đối soát dữ liệu":
+    st.title("🔍 Đối soát & So khớp mờ Thông minh")
+    
+    col_a, col_b = st.columns(2)
+    with col_a:
+        f_m = st.file_uploader("File Master (Gốc)", type=["xlsx"], key="m_up")
+        if f_m:
+            xl_m = pd.ExcelFile(f_m)
+            s_m = st.selectbox("Chọn Sheet Master:", xl_m.sheet_names)
+            df_m = pd.read_excel(f_m, sheet_name=s_m)
+            st.dataframe(df_m.head(5))
 
-    c1, c2 = st.columns(2)
-    with c1:
-        f_m = st.file_uploader("File Master (Gốc)", type=["xlsx"], key="m")
-    with c2:
-        f_c = st.file_uploader("File Cần đối soát", type=["xlsx"], key="c")
+    with col_b:
+        f_c = st.file_uploader("File Đối soát", type=["xlsx"], key="c_up")
+        if f_c:
+            xl_c = pd.ExcelFile(f_c)
+            s_c = st.selectbox("Chọn Sheet đối soát:", xl_c.sheet_names)
+            df_c = pd.read_excel(f_c, sheet_name=s_c)
+            st.dataframe(df_c.head(5))
 
     if f_m and f_c:
-        df_m = pd.read_excel(f_m)
-        df_c = pd.read_excel(f_c)
+        st.sidebar.header("⚙️ Cài đặt So khớp")
+        key_m = st.sidebar.selectbox("Cột Key (Master):", df_m.columns)
+        key_c = st.sidebar.selectbox("Cột Key (Check):", df_c.columns)
+        val_col = st.sidebar.selectbox("Cột Tiền so sánh:", df_m.columns)
         
-        st.sidebar.header("⚙️ Cấu hình So khớp")
-        key_m = st.sidebar.selectbox("Cột Mã/Tên (Master):", df_m.columns)
-        key_c = st.sidebar.selectbox("Cột Mã/Tên (Check):", df_c.columns)
-        val_col = st.sidebar.selectbox("Cột Số tiền để so:", df_m.columns)
-        
-        is_fuzzy = st.sidebar.checkbox("Bật So khớp mờ (Fuzzy Matching)")
-        threshold = st.sidebar.slider("Độ tương đồng (%)", 50, 100, 80) / 100
+        is_fuzzy = st.sidebar.checkbox("Bật So khớp mờ (Fuzzy)")
+        cutoff = st.sidebar.slider("Độ tương đồng (%)", 50, 100, 85) / 100
 
-        if st.button("🚀 Bắt đầu đối soát", type="primary"):
-            with st.spinner("Đang thực hiện so khớp..."):
+        if st.button("🚀 Thực hiện đối soát", type="primary"):
+            with st.spinner("Đang tính toán chênh lệch..."):
                 if is_fuzzy:
-                    # Logic So khớp mờ
-                    master_keys = df_m[key_m].astype(str).tolist()
-                    check_keys = df_c[key_c].astype(str).tolist()
-                    
-                    # Tạo bảng ánh xạ
-                    mapping = {}
-                    for k in master_keys:
-                        match = find_fuzzy_match(k, check_keys, cutoff=threshold)
-                        mapping[k] = match
-                    
+                    m_keys = df_m[key_m].astype(str).tolist()
+                    c_keys = df_c[key_c].astype(str).tolist()
+                    mapping = {k: find_fuzzy_match(k, c_keys, cutoff) for k in m_keys}
                     df_m['Key_Matched'] = df_m[key_m].map(mapping)
-                    merged = pd.merge(df_m, df_c, left_on='Key_Matched', right_on=key_c, how='left', suffixes=('_Gốc', '_ThựcTế'))
+                    merged = pd.merge(df_m, df_c, left_on='Key_Matched', right_on=key_c, how='outer', suffixes=('_Gốc', '_ThựcTế'))
                 else:
-                    # Logic So khớp chính xác
-                    merged = pd.merge(df_m, df_c, left_on=key_m, right_on=key_c, how='left', suffixes=('_Gốc', '_ThựcTế'))
+                    merged = pd.merge(df_m, df_c, left_on=key_m, right_on=key_c, how='outer', suffixes=('_Gốc', '_ThựcTế'))
                 
                 merged = merged.fillna(0)
-                # Đảm bảo lấy đúng cột tiền sau merge
-                col_goc = f"{val_col}_Gốc" if f"{val_col}_Gốc" in merged.columns else val_col
-                col_tt = f"{val_col}_ThựcTế" if f"{val_col}_ThựcTế" in merged.columns else val_col
+                col_g = f"{val_col}_Gốc" if f"{val_col}_Gốc" in merged.columns else val_col
+                col_t = f"{val_col}_ThựcTế" if f"{val_col}_ThựcTế" in merged.columns else val_col
+                merged['Chênh lệch'] = merged[col_g] - merged[col_t]
                 
-                merged['Chênh lệch'] = merged[col_goc] - merged[col_tt]
-                
-                st.subheader("Kết quả đối soát")
+                st.subheader("Báo cáo chênh lệch")
                 st.dataframe(merged.style.applymap(lambda x: 'background-color: #ffcccc' if x != 0 else '', subset=['Chênh lệch']))
                 
-                out = BytesIO()
-                merged.to_excel(out, index=False)
-                st.download_button("📥 Tải báo cáo đối soát", out.getvalue(), "Doi_soat_Fuzzy.xlsx")
+                # NÚT TẢI BÁO CÁO ĐỐI SOÁT
+                out_ds = BytesIO()
+                merged.to_excel(out_ds, index=False)
+                st.download_button(label="📥 Tải báo cáo đối soát (.xlsx)", data=out_ds.getvalue(), file_name="Bao_cao_doi_soat.xlsx")
