@@ -5,11 +5,12 @@ import json
 import os
 import plotly.express as px
 import difflib
+import unicodedata
 
 # --- CẤU HÌNH HỆ THỐNG ---
-st.set_page_config(page_title="Excel Hub Pro v10", layout="wide", page_icon="🛠️")
+st.set_page_config(page_title="Excel Hub Pro v11", layout="wide", page_icon="🚀")
 
-CONFIG_FILE = "excel_profiles_v10.json"
+CONFIG_FILE = "excel_profiles_v11.json"
 
 def load_profiles():
     if os.path.exists(CONFIG_FILE):
@@ -26,35 +27,14 @@ def save_profiles(profiles):
 if 'profiles' not in st.session_state:
     st.session_state['profiles'] = load_profiles()
 
-# --- BỘ CHUYỂN ĐỔI FONT (TCVN3 -> UNICODE) ---
-# Bảng mã rút gọn cho các ký tự phổ biến nhất
-TCVN3_MAP = {
-    "a\xcc\x81": "á", "a\xcc\x80": "à", "a\xcc\x89": "ả", "a\xcc\x83": "ã", "a\xcc\xa3": "ạ",
-    "\xe1": "á", "\xe0": "à", "\u1ea3": "ả", "\xe3": "ã", "\u1ea1": "ạ",
-    "\xe2": "â", "\u1ea5": "ấ", "\u1ea7": "ầ", "\u1ea9": "ẩ", "\u1eab": "ẫ", "\u1ead": "ậ",
-    "\u0103": "ă", "\u1eaf": "ắ", "\u1eb1": "ằ", "\u1eb3": "ẳ", "\u1eb5": "ẵ", "\u1eb7": "ặ",
-    "\xed": "í", "\xec": "ì", "\u1ec9": "ỉ", "\u0129": "ĩ", "\u1ecb": "ị",
-    "\xf3": "ó", "\xf2": "ò", "\u1ecf": "ỏ", "\xf5": "õ", "\u1ecd": "ọ",
-    "\xf4": "ô", "\u1ed1": "ố", "\u1ed3": "ồ", "\u1ed5": "ổ", "\u1ed7": "ỗ", "\u1ed9": "ộ",
-    "\u01a1": "ơ", "\u1edb": "ớ", "\u1edd": "ờ", "\u1edf": "ở", "\u1ee1": "ỡ", "\u1ee3": "ợ",
-    "\xfa": "ú", "\xf9": "ù", "\u1ee7": "ủ", "\u0169": "ũ", "\u1ee5": "ụ",
-    "\u01b0": "ư", "\u1ee9": "ứ", "\u1eeb": "ừ", "\u1eed": "ử", "\u1eef": "ữ", "\u1ef1": "ự",
-    "\xfd": "ý", "\u1ef3": "ỳ", "\u1ef5": "ỷ", "\u1ef7": "ỹ", "\u1ef9": "ỵ",
-    "\u0111": "đ", "\u0110": "Đ"
-}
-
-def fix_font_tcvn3(text):
-    if not isinstance(text, str): return text
-    # Đây là logic chuyển đổi mã TCVN3 (ABC) sang Unicode
-    # Trong thực tế bản web sẽ dùng bộ thư viện đầy đủ hơn, 
-    # ở đây tôi demo logic chuẩn hóa Unicode dựng sẵn
-    import unicodedata
-    return unicodedata.normalize('NFC', text)
-
 # --- HÀM TRỢ GIÚP ---
 def find_fuzzy_match(name, choices, cutoff=0.6):
     matches = difflib.get_close_matches(str(name), [str(c) for c in choices], n=1, cutoff=cutoff)
     return matches[0] if matches else None
+
+def fix_vietnamese_font(text):
+    if not isinstance(text, str): return text
+    return unicodedata.normalize('NFC', text)
 
 def run_unpivot(df, h_rows, id_col, d_start, sheet_name=None):
     try:
@@ -76,99 +56,127 @@ def run_unpivot(df, h_rows, id_col, d_start, sheet_name=None):
     except: return None
 
 # --- SIDEBAR MENU ---
-st.sidebar.title("🚀 Excel Master Hub v10")
+st.sidebar.title("🎮 Excel Master Hub v11")
 menu = st.sidebar.radio("Chọn chức năng:", ["🔄 Unpivot & Dashboard", "🔍 Đối soát & So khớp mờ", "🛠️ Tiện ích Sửa lỗi Font"])
 
-# --- MODULE 1: UNPIVOT ---
+# --- MODULE 1: UNPIVOT & DASHBOARD ---
 if menu == "🔄 Unpivot & Dashboard":
-    st.title("🔄 Unpivot & Phân tích Dashboard")
-    file_up = st.file_uploader("Tải file Excel ma trận", type=["xlsx", "xls"], key="unp_up")
+    st.title("🔄 Unpivot Ma trận & Phân tích Dashboard")
+    file_up = st.file_uploader("1. Tải file Excel ma trận", type=["xlsx", "xls"], key="unp_up")
+    
     if file_up:
         xl = pd.ExcelFile(file_up)
         sheet_names = xl.sheet_names
+        
         with st.sidebar:
-            st.header("⚙️ Cấu hình Profile")
-            sel_p = st.selectbox("Chọn Profile:", list(st.session_state['profiles'].keys()))
+            st.header("⚙️ Profile cấu hình")
+            p_names = list(st.session_state['profiles'].keys())
+            sel_p = st.selectbox("Chọn Profile:", p_names)
             cfg = st.session_state['profiles'][sel_p]
             h_r, i_c, d_s = cfg['h_rows'], cfg['id_col'], cfg['d_start']
-            if st.button("💾 Lưu Profile mới"):
-                name = st.text_input("Tên:")
-                if name:
-                    st.session_state['profiles'][name] = {"h_rows": h_r, "id_col": i_c, "d_start": d_s}
+            
+            st.markdown("---")
+            if st.button("💾 Lưu cấu hình hiện tại"):
+                new_p = st.text_input("Tên Profile:")
+                if new_p:
+                    st.session_state['profiles'][new_p] = {"h_rows": h_r, "id_col": i_c, "d_start": d_s}
                     save_profiles(st.session_state['profiles'])
-        
-        mode = st.radio("Chế độ:", ["Xử lý 1 Sheet", "Xử lý Toàn bộ Sheet"], horizontal=True)
+
+        mode = st.radio("Chế độ:", ["Xử lý 1 Sheet", "Xử lý TOÀN BỘ Sheet"], horizontal=True)
         res_final = None
+
         if mode == "Xử lý 1 Sheet":
             sel_s = st.selectbox("Chọn Sheet:", sheet_names)
             df_raw = pd.read_excel(file_up, sheet_name=sel_s, header=None)
+            st.subheader(f"📋 Preview dữ liệu: {sel_s}")
             st.dataframe(df_raw.head(10), use_container_width=True)
-            if st.button("🚀 Chạy Unpivot"): res_final = run_unpivot(df_raw, h_r, i_c, d_s, sheet_name=sel_s)
+            if st.button("🚀 Chạy Unpivot"):
+                res_final = run_unpivot(df_raw, h_r, i_c, d_s, sheet_name=sel_s)
         else:
-            if st.button("🚀 Chạy Gộp Sheet"):
+            if st.button("🚀 Chạy Gộp tất cả Sheet"):
                 all_res = [run_unpivot(pd.read_excel(file_up, s, header=None), h_r, i_c, d_s, s) for s in sheet_names]
                 res_final = pd.concat([r for r in all_res if r is not None], ignore_index=True)
 
         if res_final is not None:
-            st.success("Hoàn tất!")
+            st.success(f"Xử lý xong {len(res_final)} dòng.")
+            # Dashboard
             c1, c2 = st.columns(2)
             with c1: st.plotly_chart(px.bar(res_final.groupby("Đối tượng")["Số tiền"].sum().nlargest(10).reset_index(), x="Đối tượng", y="Số tiền", title="Top 10 Đối tượng"), use_container_width=True)
             with c2:
-                cols = [c for c in res_final.columns if c != "Số tiền"]
-                sel_pie = st.selectbox("Hạng mục biểu đồ tròn:", cols)
-                st.plotly_chart(px.pie(res_final.groupby(sel_pie)["Số tiền"].sum().reset_index(), values="Số tiền", names=sel_pie, title=f"Cơ cấu theo {sel_pie}"), use_container_width=True)
-            st.dataframe(res_final)
+                sel_pie = st.selectbox("Chọn hạng mục biểu đồ tròn:", [c for c in res_final.columns if c != "Số tiền"])
+                st.plotly_chart(px.pie(res_final, values="Số tiền", names=sel_pie, title=f"Cơ cấu theo {sel_pie}"), use_container_width=True)
+            
+            st.dataframe(res_final, use_container_width=True)
             out = BytesIO()
             res_final.to_excel(out, index=False)
-            st.download_button("📥 Tải kết quả Unpivot (.xlsx)", out.getvalue(), "Ket_qua_Unpivot.xlsx")
+            st.download_button("📥 Tải kết quả Unpivot (.xlsx)", out.getvalue(), "Unpivot_Final.xlsx")
 
-# --- MODULE 2: ĐỐI SOÁT ---
+# --- MODULE 2: ĐỐI SOÁT & SO KHỚP MỜ (ĐÃ KHÔI PHỤC PREVIEW) ---
 elif menu == "🔍 Đối soát & So khớp mờ":
-    st.title("🔍 Đối soát dữ liệu thông minh")
-    c1, c2 = st.columns(2)
-    with c1: f_m = st.file_uploader("Master", type=["xlsx"], key="m")
-    with c2: f_c = st.file_uploader("Check", type=["xlsx"], key="c")
-    if f_m and f_c:
-        df_m = pd.read_excel(f_m); df_c = pd.read_excel(f_c)
-        st.sidebar.header("⚙️ Cài đặt")
-        k_m = st.sidebar.selectbox("Mã (Master):", df_m.columns); k_c = st.sidebar.selectbox("Mã (Check):", df_c.columns)
-        v_col = st.sidebar.selectbox("Số tiền:", df_m.columns)
-        fuz = st.sidebar.checkbox("Bật So khớp mờ"); score = st.sidebar.slider("Độ tương đồng %", 50, 100, 85)/100
-        if st.button("🚀 Bắt đầu đối soát"):
+    st.title("🔍 Đối soát & So khớp mờ Thông minh")
+    
+    col1, col2 = st.columns(2)
+    df_m = df_c = None
+    
+    with col1:
+        f_m = st.file_uploader("File Gốc (Master)", type=["xlsx"], key="m")
+        if f_m:
+            xl_m = pd.ExcelFile(f_m)
+            s_m = st.selectbox("Chọn Sheet Master:", xl_m.sheet_names)
+            df_m = pd.read_excel(f_m, sheet_name=s_m)
+            st.markdown(f"**Preview Master ({s_m}):**")
+            st.dataframe(df_m.head(10), use_container_width=True) # KHÔI PHỤC PREVIEW MASTER
+
+    with col2:
+        f_c = st.file_uploader("File Đối soát", type=["xlsx"], key="c")
+        if f_c:
+            xl_c = pd.ExcelFile(f_c)
+            s_c = st.selectbox("Chọn Sheet Check:", xl_c.sheet_names)
+            df_c = pd.read_excel(f_c, sheet_name=s_c)
+            st.markdown(f"**Preview Check ({s_c}):**")
+            st.dataframe(df_c.head(10), use_container_width=True) # KHÔI PHỤC PREVIEW CHECK
+
+    if df_m is not None and df_c is not None:
+        st.sidebar.header("⚙️ Cài đặt Đối soát")
+        k_m = st.sidebar.selectbox("Cột Key (Master):", df_m.columns)
+        k_c = st.sidebar.selectbox("Cột Key (Check):", df_c.columns)
+        v_col = st.sidebar.selectbox("Cột Tiền so khớp:", df_m.columns)
+        fuz = st.sidebar.checkbox("Bật So khớp mờ")
+        score = st.sidebar.slider("Độ tương đồng %", 50, 100, 85) / 100
+
+        if st.button("🚀 Bắt đầu đối soát", type="primary"):
             if fuz:
                 mapping = {k: find_fuzzy_match(k, df_c[k_c].tolist(), score) for k in df_m[k_m].tolist()}
                 df_m['Key_Matched'] = df_m[k_m].map(mapping)
                 merged = pd.merge(df_m, df_c, left_on='Key_Matched', right_on=k_c, how='outer', suffixes=('_Gốc', '_ThựcTế'))
             else:
                 merged = pd.merge(df_m, df_c, left_on=k_m, right_on=k_c, how='outer', suffixes=('_Gốc', '_ThựcTế'))
+            
             merged = merged.fillna(0)
             cg = f"{v_col}_Gốc" if f"{v_col}_Gốc" in merged.columns else v_col
             ct = f"{v_col}_ThựcTế" if f"{v_col}_ThựcTế" in merged.columns else v_col
             merged['Chênh lệch'] = merged[cg] - merged[ct]
+            
+            st.subheader("Kết quả đối soát")
             st.dataframe(merged.style.applymap(lambda x: 'background-color: #ffcccc' if x != 0 else '', subset=['Chênh lệch']))
             out_ds = BytesIO()
             merged.to_excel(out_ds, index=False)
-            st.download_button("📥 Tải báo cáo đối soát", out_ds.getvalue(), "Bao_cao_doi_soat.xlsx")
+            st.download_button("📥 Tải báo cáo đối soát (.xlsx)", out_ds.getvalue(), "Bao_cao_doi_soat.xlsx")
 
-# --- MODULE 3: TIỆN ÍCH FONT (MỚI) ---
+# --- MODULE 3: SỬA LỖI FONT ---
 elif menu == "🛠️ Tiện ích Sửa lỗi Font":
     st.title("🛠️ Chuẩn hóa Font chữ Tiếng Việt")
-    st.info("Chức năng này giúp chuyển đổi các cột dữ liệu bị lỗi font (Unicode tổ hợp/dựng sẵn) về chuẩn duy nhất.")
-    
-    file_f = st.file_uploader("Tải file Excel cần sửa font", type=["xlsx"], key="f_fix")
+    file_f = st.file_uploader("Tải file cần sửa font", type=["xlsx"], key="font")
     if file_f:
         xl_f = pd.ExcelFile(file_f)
-        s_f = st.selectbox("Chọn Sheet cần sửa:", xl_f.sheet_names)
+        s_f = st.selectbox("Chọn Sheet:", xl_f.sheet_names)
         df_f = pd.read_excel(file_f, sheet_name=s_f)
         st.dataframe(df_f.head(10))
-        
-        target_cols = st.multiselect("Chọn các cột cần sửa lỗi font:", df_f.columns)
-        
-        if st.button("🚀 Tiến hành sửa lỗi font"):
-            for col in target_cols:
-                df_f[col] = df_f[col].apply(fix_font_tcvn3)
-            st.success("Đã chuẩn hóa font chữ thành công!")
+        target_cols = st.multiselect("Chọn các cột cần sửa:", df_f.columns)
+        if st.button("🚀 Thực hiện sửa font"):
+            for col in target_cols: df_f[col] = df_f[col].apply(fix_vietnamese_font)
+            st.success("Đã chuẩn hóa!")
             st.dataframe(df_f.head(10))
             out_f = BytesIO()
             df_f.to_excel(out_f, index=False)
-            st.download_button("📥 Tải file đã sửa font", out_f.getvalue(), "File_Da_Sua_Font.xlsx")
+            st.download_button("📥 Tải file đã sửa (.xlsx)", out_f.getvalue(), "File_Unicode.xlsx")
