@@ -7,40 +7,35 @@ import plotly.express as px
 import difflib
 import unicodedata
 import zipfile
-import requests
-from streamlit_lottie import st_lottie # Thêm hoạt ảnh sinh động
 
-# --- 1. CẤU HÌNH GIAO DIỆN NÂNG CAO (CSS) ---
-st.set_page_config(page_title="Excel Hub Pro v14", layout="wide", page_icon="🚀")
+# --- 1. CẤU HÌNH GIAO DIỆN (CSS CUSTOM) ---
+st.set_page_config(page_title="Excel Hub Pro v15", layout="wide", page_icon="🚀")
 
-def local_css():
+def apply_custom_css():
     st.markdown("""
     <style>
-    /* Bo góc và đổ bóng cho các container */
-    .stApp { background-color: #f8f9fa; }
-    div[data-testid="stExpander"] { border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-radius: 10px; background: white; }
-    .stButton>button { border-radius: 20px; width: 100%; transition: all 0.3s; border: none; background-color: #4CAF50; color: white; font-weight: bold; }
-    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    /* Tổng thể app */
+    .stApp { background-color: #f1f3f6; }
     /* Tùy chỉnh Sidebar */
-    [data-testid="stSidebar"] { background-color: #1e293b; color: white; }
+    [data-testid="stSidebar"] { background-color: #111827; color: white; }
     [data-testid="stSidebar"] * { color: white !important; }
-    /* Thẻ chỉ số KPI */
-    .metric-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); text-align: center; border-top: 4px solid #4CAF50; }
+    /* Container & Expander */
+    div[data-testid="stExpander"] { border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-radius: 12px; background: white; margin-bottom: 20px; }
+    /* Nút bấm Pro */
+    .stButton>button { border-radius: 12px; width: 100%; height: 45px; background-color: #2563eb; color: white; border: none; font-weight: 600; transition: 0.3s; }
+    .stButton>button:hover { background-color: #1d4ed8; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+    /* KPI Cards */
+    .kpi-container { display: flex; gap: 20px; margin-bottom: 25px; }
+    .kpi-card { flex: 1; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); text-align: center; border-bottom: 4px solid #2563eb; }
+    .kpi-card h3 { color: #64748b; font-size: 0.9rem; margin-bottom: 5px; }
+    .kpi-card h2 { color: #1e293b; font-size: 1.8rem; margin: 0; }
     </style>
     """, unsafe_allow_html=True)
 
-local_css()
+apply_custom_css()
 
-# --- HÀM TẢI HOẠT ẢNH ---
-def load_lottieurl(url):
-    r = requests.get(url)
-    if r.status_code != 200: return None
-    return r.json()
-
-lottie_excel = load_lottieurl("https://assets5.lottiefiles.com/packages/lf20_S69f4D.json")
-
-# --- CẤU HÌNH HỆ THỐNG CŨ (GIỮ NGUYÊN) ---
-CONFIG_FILE = "excel_profiles_v14.json"
+# --- 2. HỆ THỐNG CỐT LÕI (GIỮ NGUYÊN) ---
+CONFIG_FILE = "excel_profiles_v15.json"
 def load_profiles():
     if os.path.exists(CONFIG_FILE):
         try:
@@ -53,7 +48,6 @@ def save_profiles(profiles):
 
 if 'profiles' not in st.session_state: st.session_state['profiles'] = load_profiles()
 
-# --- CÁC HÀM LOGIC CŨ (GIỮ NGUYÊN 100%) ---
 def find_fuzzy_match(name, choices, cutoff=0.6):
     matches = difflib.get_close_matches(str(name), [str(c) for c in choices], n=1, cutoff=cutoff)
     return matches[0] if matches else None
@@ -80,11 +74,11 @@ def run_unpivot(df, h_rows, id_col, d_start, sheet_name=None):
         return pd.DataFrame(results)
     except: return None
 
-# --- SIDEBAR MENU ---
+# --- 3. SIDEBAR & MENU ---
 with st.sidebar:
-    st_lottie(lottie_excel, height=150, key="logo") # Thêm logo hoạt hình
-    st.title("Excel Master Hub")
-    menu = st.radio("Chức năng:", [
+    st.title("🚀 Excel Master Hub")
+    st.markdown("---")
+    menu = st.radio("Chức năng hệ thống:", [
         "🔄 Unpivot & Dashboard", 
         "🔍 Đối soát & So khớp mờ", 
         "🛠️ Tiện ích Sửa lỗi Font",
@@ -95,111 +89,112 @@ with st.sidebar:
 if menu == "🔄 Unpivot & Dashboard":
     st.title("🔄 Unpivot & Dashboard Phân tích")
     with st.expander("📖 Hướng dẫn sử dụng", expanded=False):
-        st.write("B1: Tải file -> B2: Cấu hình Profile -> B3: Nhấn Chạy -> B4: Tải kết quả.")
+        st.write("Tải file -> Cấu hình Profile tại Sidebar -> Chọn chế độ xử lý -> Tải file kết quả.")
 
-    file_up = st.file_uploader("Tải file Excel ma trận", type=["xlsx", "xls"], key="unp_up")
+    file_up = st.file_uploader("Tải file Excel ma trận", type=["xlsx", "xls"], key="unp")
     if file_up:
         xl = pd.ExcelFile(file_up); sheet_names = xl.sheet_names
         with st.sidebar:
-            st.header("⚙️ Cấu hình")
+            st.header("⚙️ Cấu hình Profile")
             sel_p = st.selectbox("Chọn Profile:", list(st.session_state['profiles'].keys()))
             cfg = st.session_state['profiles'][sel_p]
             h_r, i_c, d_s = cfg['h_rows'], cfg['id_col'], cfg['d_start']
-            if st.button("💾 Lưu Profile"):
-                new_p = st.text_input("Tên:")
-                if new_p:
-                    st.session_state['profiles'][new_p] = {"h_rows": h_r, "id_col": i_c, "d_start": d_s}
+            if st.button("💾 Lưu cấu hình hiện tại"):
+                n_p = st.text_input("Tên Profile mới:")
+                if n_p:
+                    st.session_state['profiles'][n_p] = {"h_rows": h_r, "id_col": i_c, "d_start": d_s}
                     save_profiles(st.session_state['profiles'])
 
-        mode = st.radio("Chế độ:", ["Xử lý 1 Sheet", "Xử lý TOÀN BỘ Sheet"], horizontal=True)
+        mode = st.radio("Chế độ:", ["Xử lý 1 Sheet (Preview)", "Xử lý Toàn bộ Sheet (Gộp)"], horizontal=True)
         res_final = None
-        if mode == "Xử lý 1 Sheet":
+        if mode == "Xử lý 1 Sheet (Preview)":
             sel_s = st.selectbox("Chọn Sheet:", sheet_names)
             df_raw = pd.read_excel(file_up, sheet_name=sel_s, header=None)
             st.dataframe(df_raw.head(10), use_container_width=True)
-            if st.button("🚀 Chạy Unpivot"): res_final = run_unpivot(df_raw, h_r, i_c, d_s, sheet_name=sel_s)
+            if st.button("🚀 Thực hiện Unpivot"): res_final = run_unpivot(df_raw, h_r, i_c, d_s, sheet_name=sel_s)
         else:
-            if st.button("🚀 Chạy Gộp tất cả"):
+            if st.button("🚀 Bắt đầu gộp tất cả"):
                 all_res = [run_unpivot(pd.read_excel(file_up, s, header=None), h_r, i_c, d_s, s) for s in sheet_names]
                 res_final = pd.concat([r for r in all_res if r is not None], ignore_index=True)
 
         if res_final is not None:
-            # HIỂN THỊ KPI SINH ĐỘNG
-            st.markdown("---")
-            k1, k2, k3 = st.columns(3)
-            with k1: st.markdown(f'<div class="metric-card"><h3>Tổng dòng</h3><h2>{len(res_final):,}</h2></div>', unsafe_allow_html=True)
-            with k2: st.markdown(f'<div class="metric-card"><h3>Tổng tiền</h3><h2>{res_final["Số tiền"].sum():,.0f}</h2></div>', unsafe_allow_html=True)
-            with k3: st.markdown(f'<div class="metric-card"><h3>Đối tượng</h3><h2>{res_final["Đối tượng"].nunique()}</h2></div>', unsafe_allow_html=True)
-
+            # KPI Cards
+            st.markdown(f"""
+            <div class="kpi-container">
+                <div class="kpi-card"><h3>Tổng dòng</h3><h2>{len(res_final):,}</h2></div>
+                <div class="kpi-card"><h3>Tổng tiền</h3><h2>{res_final['Số tiền'].sum():,.0f}</h2></div>
+                <div class="kpi-card"><h3>Đối tượng</h3><h2>{res_final['Đối tượng'].nunique()}</h2></div>
+            </div>
+            """, unsafe_allow_html=True)
+            
             c1, c2 = st.columns(2)
             with c1: st.plotly_chart(px.bar(res_final.groupby("Đối tượng")["Số tiền"].sum().nlargest(10).reset_index(), x="Đối tượng", y="Số tiền", title="Top 10 Đối tượng"), use_container_width=True)
-            with c2:
-                sel_pie = st.selectbox("Hạng mục tròn:", [c for c in res_final.columns if c != "Số tiền"])
-                st.plotly_chart(px.pie(res_final, values="Số tiền", names=sel_pie, title="Cơ cấu"), use_container_width=True)
+            with c2: 
+                sel_p = st.selectbox("Vẽ biểu đồ tròn theo:", [c for c in res_final.columns if c != "Số tiền"])
+                st.plotly_chart(px.pie(res_final, values="Số tiền", names=sel_p, title=f"Cơ cấu theo {sel_pie}"), use_container_width=True)
             
             st.dataframe(res_final, use_container_width=True)
             out = BytesIO(); res_final.to_excel(out, index=False)
-            st.download_button("📥 Tải kết quả Unpivot", out.getvalue(), "Unpivot_Final.xlsx")
+            st.download_button("📥 Tải kết quả Unpivot (.xlsx)", out.getvalue(), "Unpivot_Final.xlsx")
 
 # --- MODULE 2: ĐỐI SOÁT (BẢO TỒN PREVIEW) ---
 elif menu == "🔍 Đối soát & So khớp mờ":
-    st.title("🔍 Đối soát dữ liệu")
-    with st.expander("📖 Hướng dẫn"): st.write("Tải 2 file -> Chọn Key -> Bật Fuzzy nếu cần -> Chạy.")
+    st.title("🔍 Đối soát dữ liệu thông minh")
+    with st.expander("📖 Hướng dẫn Đối soát", expanded=False):
+        st.write("Tải file Master & Check -> Chọn Key -> Bật Fuzzy nếu tên không khớp 100% -> Chạy.")
+    
     col1, col2 = st.columns(2)
     df_m = df_c = None
     with col1:
-        f_m = st.file_uploader("Master", type=["xlsx"], key="m")
+        f_m = st.file_uploader("File Master", type=["xlsx"], key="m")
         if f_m:
-            xl_m = pd.ExcelFile(f_m); s_m = st.selectbox("Sheet Master:", xl_m.sheet_names)
-            df_m = pd.read_excel(f_m, sheet_name=s_m)
-            st.dataframe(df_m.head(10), use_container_width=True)
+            xl_m = pd.ExcelFile(f_m); s_m = st.selectbox("Chọn Sheet Master:", xl_m.sheet_names)
+            df_m = pd.read_excel(f_m, sheet_name=s_m); st.dataframe(df_m.head(10), use_container_width=True)
     with col2:
-        f_c = st.file_uploader("Check", type=["xlsx"], key="c")
+        f_c = st.file_uploader("File Đối soát", type=["xlsx"], key="c")
         if f_c:
-            xl_c = pd.ExcelFile(f_c); s_c = st.selectbox("Sheet Check:", xl_c.sheet_names)
-            df_c = pd.read_excel(f_c, sheet_name=s_c)
-            st.dataframe(df_c.head(10), use_container_width=True)
+            xl_c = pd.ExcelFile(f_c); s_c = st.selectbox("Chọn Sheet Check:", xl_c.sheet_names)
+            df_c = pd.read_excel(f_c, sheet_name=s_c); st.dataframe(df_c.head(10), use_container_width=True)
 
     if df_m is not None and df_c is not None:
         st.sidebar.header("⚙️ Cài đặt")
         k_m = st.sidebar.selectbox("Key (Master):", df_m.columns); k_c = st.sidebar.selectbox("Key (Check):", df_c.columns)
-        v_col = st.sidebar.selectbox("Tiền:", df_m.columns); fuz = st.sidebar.checkbox("Bật Fuzzy"); score = st.sidebar.slider("Độ tương đồng %", 50, 100, 85)/100
-        if st.button("🚀 Chạy Đối soát"):
+        v_col = st.sidebar.selectbox("Cột Tiền:", df_m.columns); fuz = st.sidebar.checkbox("Bật So khớp mờ"); score = st.sidebar.slider("Độ tương đồng %", 50, 100, 85)/100
+        if st.button("🚀 Thực hiện đối soát"):
             if fuz:
                 mapping = {k: find_fuzzy_match(k, df_c[k_c].tolist(), score) for k in df_m[k_m].tolist()}
                 df_m['Key_Matched'] = df_m[k_m].map(mapping)
                 merged = pd.merge(df_m, df_c, left_on='Key_Matched', right_on=k_c, how='outer', suffixes=('_Gốc', '_ThựcTế'))
             else:
                 merged = pd.merge(df_m, df_c, left_on=k_m, right_on=k_c, how='outer', suffixes=('_Gốc', '_ThựcTế'))
-            merged = merged.fillna(0); cg = f"{v_col}_Gốc" if f"{v_col}_Gốc" in merged.columns else v_col; ct = f"{v_col}_ThựcTế" if f"{v_col}_ThựcTế" in merged.columns else v_col
+            merged = merged.fillna(0); cg, ct = f"{v_col}_Gốc", f"{v_col}_ThựcTế"
+            if cg not in merged.columns: cg, ct = v_col, v_col
             merged['Chênh lệch'] = merged[cg] - merged[ct]
             st.dataframe(merged.style.applymap(lambda x: 'background-color: #ffcccc' if x != 0 else '', subset=['Chênh lệch']), use_container_width=True)
             out_ds = BytesIO(); merged.to_excel(out_ds, index=False)
-            st.download_button("📥 Tải báo cáo đối soát", out_ds.getvalue(), "Bao_cao.xlsx")
+            st.download_button("📥 Tải báo cáo đối soát", out_ds.getvalue(), "Bao_cao_doi_soat.xlsx")
 
-# --- CÁC MODULE KHÁC: FONT & TÁCH FILE (BẢO TỒN 100%) ---
+# --- CÁC MODULE KHÁC (BẢO TỒN 100%) ---
 elif menu == "🛠️ Tiện ích Sửa lỗi Font":
-    st.title("🛠️ Sửa lỗi Font")
-    file_f = st.file_uploader("Tải file", type=["xlsx"], key="font")
-    if file_f:
-        df_f = pd.read_excel(file_f); st.dataframe(df_f.head(10))
-        target_cols = st.multiselect("Chọn cột:", df_f.columns)
-        if st.button("🚀 Sửa font"):
-            for col in target_cols: df_f[col] = df_f[col].apply(fix_vietnamese_font)
+    st.title("🛠️ Chuẩn hóa Font Tiếng Việt")
+    f_f = st.file_uploader("Tải file", type=["xlsx"], key="font")
+    if f_f:
+        df_f = pd.read_excel(f_f); st.dataframe(df_f.head(10)); target = st.multiselect("Chọn cột:", df_f.columns)
+        if st.button("🚀 Chạy chuẩn hóa"):
+            for c in target: df_f[c] = df_f[c].apply(fix_vietnamese_font)
             st.success("Xong!"); st.dataframe(df_f.head(10))
             out_f = BytesIO(); df_f.to_excel(out_f, index=False)
-            st.download_button("📥 Tải file", out_f.getvalue(), "Fixed.xlsx")
+            st.download_button("📥 Tải file sạch", out_f.getvalue(), "Fixed_Font.xlsx")
 
 elif menu == "📂 Tách File hàng loạt (ZIP)":
-    st.title("📂 Tách File ZIP")
-    file_split = st.file_uploader("Tải file", type=["xlsx"], key="split")
-    if file_split:
-        df_s = pd.read_excel(file_split); st.dataframe(df_s.head(10))
-        split_col = st.selectbox("Chọn cột tách:", df_s.columns)
-        if st.button("🚀 Tách & ZIP"):
-            unique_vals = df_s[split_col].unique(); zip_buffer = BytesIO()
-            with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zf:
-                for val in unique_vals:
-                    df_filtered = df_s[df_s[split_col] == val]; sub = BytesIO(); df_filtered.to_excel(sub, index=False)
-                    zf.writestr(f"{val}.xlsx", sub.getvalue())
-            st.success("Xong!"); st.download_button("📥 Tải ZIP", zip_buffer.getvalue(), "Tach.zip")
+    st.title("📂 Tách File ZIP hàng loạt")
+    f_s = st.file_uploader("Tải file", type=["xlsx"], key="split")
+    if f_s:
+        df_s = pd.read_excel(f_s); st.dataframe(df_s.head(10)); split_col = st.selectbox("Chọn cột tách:", df_s.columns)
+        if st.button("🚀 Bắt đầu tách"):
+            vals = df_s[split_col].unique(); zip_buf = BytesIO()
+            with zipfile.ZipFile(zip_buf, "a", zipfile.ZIP_DEFLATED, False) as zf:
+                for v in vals:
+                    df_v = df_s[df_s[split_col] == v]; buf = BytesIO(); df_v.to_excel(buf, index=False)
+                    zf.writestr(f"{v}.xlsx", buf.getvalue())
+            st.success("Hoàn tất!"); st.download_button("📥 Tải ZIP", zip_buf.getvalue(), "Files_Tach.zip")
