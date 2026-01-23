@@ -6,12 +6,12 @@ import os
 import plotly.express as px
 import difflib
 import unicodedata
-import zipfile # Thư viện mới để nén file
+import zipfile
 
 # --- CẤU HÌNH HỆ THỐNG ---
-st.set_page_config(page_title="Excel Hub Pro v12", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="Excel Hub Pro v13", layout="wide", page_icon="🚀")
 
-CONFIG_FILE = "excel_profiles_v12.json"
+CONFIG_FILE = "excel_profiles_v13.json"
 
 def load_profiles():
     if os.path.exists(CONFIG_FILE):
@@ -56,18 +56,30 @@ def run_unpivot(df, h_rows, id_col, d_start, sheet_name=None):
         return pd.DataFrame(results)
     except: return None
 
-# --- SIDEBAR MENU (KHÔNG BỎ CÁI CŨ) ---
-st.sidebar.title("🎮 Excel Master Hub v12")
+# --- SIDEBAR MENU ---
+st.sidebar.title("🎮 Excel Master Hub v13")
 menu = st.sidebar.radio("Chọn nghiệp vụ:", [
     "🔄 Unpivot & Dashboard", 
     "🔍 Đối soát & So khớp mờ", 
     "🛠️ Tiện ích Sửa lỗi Font",
-    "📂 Tách File hàng loạt (ZIP)" # TÍNH NĂNG MỚI
+    "📂 Tách File hàng loạt (ZIP)"
 ])
 
-# --- MODULE 1: UNPIVOT & DASHBOARD (GIỮ NGUYÊN 100%) ---
+# --- MODULE 1: UNPIVOT & DASHBOARD ---
 if menu == "🔄 Unpivot & Dashboard":
     st.title("🔄 Unpivot Ma trận & Phân tích Dashboard")
+    
+    with st.expander("📖 Hướng dẫn sử dụng cho người mới", expanded=False):
+        st.markdown("""
+        **Bước 1:** Tải file Excel có cấu trúc ngang (ma trận).
+        **Bước 2:** Cấu hình thông số tại Sidebar bên trái:
+        - *Số hàng tiêu đề:* Số lượng hàng chứa thông tin (Ngày, Mã, Nội dung...).
+        - *Cột Tên:* Vị trí cột chứa Họ tên/Đối tượng (A=0, B=1...).
+        - *Dòng bắt đầu:* Dòng đầu tiên xuất hiện số liệu thực tế.
+        **Bước 3:** Chọn chế độ 'Xử lý 1 Sheet' để kiểm tra Preview hoặc 'Tất cả Sheet' để gộp dữ liệu năm/quý.
+        **Bước 4:** Nhấn 'Chạy Unpivot' -> Xem biểu đồ Dashboard -> Tải file kết quả.
+        """)
+
     file_up = st.file_uploader("1. Tải file Excel ma trận", type=["xlsx", "xls"], key="unp_up")
     if file_up:
         xl = pd.ExcelFile(file_up)
@@ -109,24 +121,32 @@ if menu == "🔄 Unpivot & Dashboard":
             res_final.to_excel(out, index=False)
             st.download_button("📥 Tải kết quả Unpivot (.xlsx)", out.getvalue(), "Unpivot_Final.xlsx")
 
-# --- MODULE 2: ĐỐI SOÁT & SO KHỚP MỜ (GIỮ NGUYÊN 100% PREVIEW) ---
+# --- MODULE 2: ĐỐI SOÁT & SO KHỚP MỜ (100% PREVIEW) ---
 elif menu == "🔍 Đối soát & So khớp mờ":
     st.title("🔍 Đối soát & So khớp mờ Thông minh")
+    
+    with st.expander("📖 Hướng dẫn Đối soát", expanded=False):
+        st.markdown("""
+        **Bước 1:** Tải file Gốc (Master) và file Thực tế (Check).
+        **Bước 2:** Chọn Sheet tương ứng của mỗi file để hiện Preview.
+        **Bước 3:** Tại Sidebar, chọn cột 'Mã khóa' chung giữa 2 file (ví dụ: Họ tên hoặc Mã NV).
+        **Bước 4:** Nếu dữ liệu không khớp 100% (sai dấu, thừa cách), hãy bật 'So khớp mờ'.
+        **Bước 5:** Nhấn 'Bắt đầu đối soát' -> Tải báo cáo lỗi (các dòng chênh lệch sẽ được tô đỏ).
+        """)
+
     col1, col2 = st.columns(2)
     df_m = df_c = None
     with col1:
         f_m = st.file_uploader("File Gốc (Master)", type=["xlsx"], key="m")
         if f_m:
-            xl_m = pd.ExcelFile(f_m)
-            s_m = st.selectbox("Chọn Sheet Master:", xl_m.sheet_names)
+            xl_m = pd.ExcelFile(f_m); s_m = st.selectbox("Chọn Sheet Master:", xl_m.sheet_names)
             df_m = pd.read_excel(f_m, sheet_name=s_m)
             st.markdown(f"**Preview Master ({s_m}):**")
             st.dataframe(df_m.head(10), use_container_width=True)
     with col2:
         f_c = st.file_uploader("File Đối soát", type=["xlsx"], key="c")
         if f_c:
-            xl_c = pd.ExcelFile(f_c)
-            s_c = st.selectbox("Chọn Sheet Check:", xl_c.sheet_names)
+            xl_c = pd.ExcelFile(f_c); s_c = st.selectbox("Chọn Sheet Check:", xl_c.sheet_names)
             df_c = pd.read_excel(f_c, sheet_name=s_c)
             st.markdown(f"**Preview Check ({s_c}):**")
             st.dataframe(df_c.head(10), use_container_width=True)
@@ -152,9 +172,11 @@ elif menu == "🔍 Đối soát & So khớp mờ":
             merged.to_excel(out_ds, index=False)
             st.download_button("📥 Tải báo cáo đối soát (.xlsx)", out_ds.getvalue(), "Bao_cao_doi_soat.xlsx")
 
-# --- MODULE 3: SỬA LỖI FONT (GIỮ NGUYÊN 100%) ---
+# --- MODULE 3: SỬA LỖI FONT ---
 elif menu == "🛠️ Tiện ích Sửa lỗi Font":
     st.title("🛠️ Chuẩn hóa Font chữ Tiếng Việt")
+    with st.expander("📖 Hướng dẫn sửa Font"):
+        st.write("Dùng khi file bị lỗi hiển thị tiếng Việt. Bước 1: Tải file. Bước 2: Chọn Sheet. Bước 3: Chọn các cột chữ cần sửa. Bước 4: Chạy và Tải file.")
     file_f = st.file_uploader("Tải file cần sửa font", type=["xlsx"], key="font")
     if file_f:
         xl_f = pd.ExcelFile(file_f); s_f = st.selectbox("Chọn Sheet:", xl_f.sheet_names)
@@ -166,38 +188,23 @@ elif menu == "🛠️ Tiện ích Sửa lỗi Font":
             out_f = BytesIO(); df_f.to_excel(out_f, index=False)
             st.download_button("📥 Tải file đã sửa (.xlsx)", out_f.getvalue(), "File_Unicode.xlsx")
 
-# --- MODULE 4: TÁCH FILE HÀNG LOẠT (TÍNH NĂNG MỚI) ---
+# --- MODULE 4: TÁCH FILE HÀNG LOẠT ---
 elif menu == "📂 Tách File hàng loạt (ZIP)":
     st.title("📂 Chia tách File lớn thành nhiều File nhỏ")
-    st.info("Tính năng này giúp tách một file tổng thành nhiều file Excel riêng biệt dựa trên một cột bạn chọn (ví dụ: tách theo Tỉnh, theo Phòng ban).")
-    
+    with st.expander("📖 Hướng dẫn Tách File"):
+        st.write("Chọn cột dùng để phân loại (ví dụ: Tỉnh thành). Ứng dụng sẽ tạo cho mỗi giá trị trong cột đó 1 file riêng và nén vào file .ZIP.")
     file_split = st.file_uploader("Tải file Excel cần tách", type=["xlsx"], key="split_up")
     if file_split:
         xl_s = pd.ExcelFile(file_split); s_s = st.selectbox("Chọn Sheet dữ liệu:", xl_s.sheet_names)
         df_s = pd.read_excel(file_split, sheet_name=s_s)
-        st.subheader("📋 Preview dữ liệu")
-        st.dataframe(df_s.head(10), use_container_width=True)
-        
-        split_col = st.selectbox("Chọn cột dùng để tách file (Ví dụ: Tỉnh thành):", df_s.columns)
-        
+        st.subheader("📋 Preview dữ liệu"); st.dataframe(df_s.head(10), use_container_width=True)
+        split_col = st.selectbox("Chọn cột dùng để tách file:", df_s.columns)
         if st.button("🚀 Bắt đầu tách và nén ZIP", type="primary"):
             unique_vals = df_s[split_col].unique()
             zip_buffer = BytesIO()
-            
             with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
                 for val in unique_vals:
-                    # Lọc dữ liệu theo từng giá trị duy nhất
                     df_filtered = df_s[df_s[split_col] == val]
-                    # Lưu file con vào bộ nhớ
-                    sub_buffer = BytesIO()
-                    df_filtered.to_excel(sub_buffer, index=False)
-                    # Đưa vào file ZIP
+                    sub_buffer = BytesIO(); df_filtered.to_excel(sub_buffer, index=False)
                     zip_file.writestr(f"{val}.xlsx", sub_buffer.getvalue())
-            
-            st.success(f"Đã tách thành công thành {len(unique_vals)} file nhỏ!")
-            st.download_button(
-                label="📥 Tải toàn bộ File Tách (.ZIP)",
-                data=zip_buffer.getvalue(),
-                file_name="File_Tach_Tong_Hop.zip",
-                mime="application/zip"
-            )
+            st.success(f"Đã tách xong {len(unique_vals)} file!"); st.download_button("📥 Tải toàn bộ ZIP", zip_buffer.getvalue(), "File_Tach.zip", "application/zip")
