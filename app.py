@@ -8,8 +8,8 @@ import difflib
 import unicodedata
 import zipfile
 
-# --- 1. CẤU HÌNH GIAO DIỆN (CSS CUSTOM - GIỮ NGUYÊN) ---
-st.set_page_config(page_title="Excel Hub Pro v16", layout="wide", page_icon="🚀")
+# --- 1. CẤU HÌNH GIAO DIỆN (CSS CUSTOM) ---
+st.set_page_config(page_title="Excel Hub Pro v17", layout="wide", page_icon="🚀")
 
 def apply_custom_css():
     st.markdown("""
@@ -29,8 +29,8 @@ def apply_custom_css():
 
 apply_custom_css()
 
-# --- 2. HỆ THỐNG CỐT LÕI (GIỮ NGUYÊN) ---
-CONFIG_FILE = "excel_profiles_v16.json"
+# --- 2. HỆ THỐNG CỐT LÕI ---
+CONFIG_FILE = "excel_profiles_v17.json"
 def load_profiles():
     if os.path.exists(CONFIG_FILE):
         try:
@@ -69,7 +69,7 @@ def run_unpivot(df, h_rows, id_col, d_start, sheet_name=None):
         return pd.DataFrame(results)
     except: return None
 
-# --- 3. SIDEBAR & MENU (GIỮ NGUYÊN) ---
+# --- 3. SIDEBAR & MENU ---
 with st.sidebar:
     st.title("🚀 Excel Master Hub")
     st.markdown("---")
@@ -84,21 +84,30 @@ with st.sidebar:
 if menu == "🔄 Unpivot & Dashboard":
     st.title("🔄 Unpivot & Dashboard Phân tích")
     with st.expander("📖 Hướng dẫn sử dụng", expanded=False):
-        st.write("Tải file -> Cấu hình Profile tại Sidebar -> Chọn chế độ xử lý -> Tải file kết quả.")
+        st.write("Tải file -> Cấu hình hàng/cột tại Sidebar -> Chọn chế độ xử lý -> Xem Dashboard và Tải file.")
 
     file_up = st.file_uploader("Tải file Excel ma trận", type=["xlsx", "xls"], key="unp")
     if file_up:
         xl = pd.ExcelFile(file_up); sheet_names = xl.sheet_names
+        
+        # --- KHÔI PHỤC PHẦN CẤU HÌNH SIDEBAR ---
         with st.sidebar:
-            st.header("⚙️ Cấu hình Profile")
-            sel_p_cfg = st.selectbox("Chọn Profile:", list(st.session_state['profiles'].keys()))
+            st.header("⚙️ Cấu hình Unpivot")
+            sel_p_cfg = st.selectbox("Sử dụng Profile:", list(st.session_state['profiles'].keys()))
             cfg = st.session_state['profiles'][sel_p_cfg]
-            h_r, i_c, d_s = cfg['h_rows'], cfg['id_col'], cfg['d_start']
-            if st.button("💾 Lưu cấu hình hiện tại"):
-                n_p = st.text_input("Tên Profile mới:")
-                if n_p:
-                    st.session_state['profiles'][n_p] = {"h_rows": h_r, "id_col": i_c, "d_start": d_s}
+            
+            # ĐẶT LẠI CÁC Ô NHẬP LIỆU ĐỂ NGƯỜI DÙNG TÙY CHỈNH
+            h_r = st.number_input("Số hàng tiêu đề:", value=cfg['h_rows'], min_value=0)
+            i_c = st.number_input("Cột Tên (A=0, B=1...):", value=cfg['id_col'], min_value=0)
+            d_s = st.number_input("Dòng bắt đầu dữ liệu:", value=cfg['d_start'], min_value=1)
+            
+            st.markdown("---")
+            new_p_name = st.text_input("Lưu cấu hình mới với tên:")
+            if st.button("💾 Lưu Profile"):
+                if new_p_name:
+                    st.session_state['profiles'][new_p_name] = {"h_rows": h_r, "id_col": i_c, "d_start": d_s}
                     save_profiles(st.session_state['profiles'])
+                    st.success(f"Đã lưu: {new_p_name}")
 
         mode = st.radio("Chế độ:", ["Xử lý 1 Sheet (Preview)", "Xử lý Toàn bộ Sheet (Gộp)"], horizontal=True)
         res_final = None
@@ -124,7 +133,6 @@ if menu == "🔄 Unpivot & Dashboard":
             c1, c2 = st.columns(2)
             with c1: st.plotly_chart(px.bar(res_final.groupby("Đối tượng")["Số tiền"].sum().nlargest(10).reset_index(), x="Đối tượng", y="Số tiền", title="Top 10 Đối tượng"), use_container_width=True)
             with c2: 
-                # ĐÃ SỬA LỖI BIẾN sel_pie Ở ĐÂY
                 sel_pie = st.selectbox("Vẽ biểu đồ tròn theo:", [c for c in res_final.columns if c != "Số tiền"])
                 st.plotly_chart(px.pie(res_final, values="Số tiền", names=sel_pie, title=f"Cơ cấu theo {sel_pie}"), use_container_width=True)
             
@@ -136,7 +144,7 @@ if menu == "🔄 Unpivot & Dashboard":
 elif menu == "🔍 Đối soát & So khớp mờ":
     st.title("🔍 Đối soát dữ liệu thông minh")
     with st.expander("📖 Hướng dẫn Đối soát", expanded=False):
-        st.write("Tải file Master & Check -> Chọn Key -> Bật Fuzzy nếu cần -> Chạy.")
+        st.write("Tải 2 file -> Chọn Sheet để hiện Preview -> Cấu hình Key -> Chạy đối soát.")
     
     col1, col2 = st.columns(2)
     df_m = df_c = None
@@ -144,15 +152,19 @@ elif menu == "🔍 Đối soát & So khớp mờ":
         f_m = st.file_uploader("File Master", type=["xlsx"], key="m")
         if f_m:
             xl_m = pd.ExcelFile(f_m); s_m = st.selectbox("Chọn Sheet Master:", xl_m.sheet_names)
-            df_m = pd.read_excel(f_m, sheet_name=s_m); st.markdown(f"**Preview Master ({s_m}):**"); st.dataframe(df_m.head(10), use_container_width=True)
+            df_m = pd.read_excel(f_m, sheet_name=s_m)
+            st.markdown(f"**Preview Master ({s_m}):**")
+            st.dataframe(df_m.head(10), use_container_width=True)
     with col2:
         f_c = st.file_uploader("File Đối soát", type=["xlsx"], key="c")
         if f_c:
             xl_c = pd.ExcelFile(f_c); s_c = st.selectbox("Chọn Sheet Check:", xl_c.sheet_names)
-            df_c = pd.read_excel(f_c, sheet_name=s_c); st.markdown(f"**Preview Check ({s_c}):**"); st.dataframe(df_c.head(10), use_container_width=True)
+            df_c = pd.read_excel(f_c, sheet_name=s_c)
+            st.markdown(f"**Preview Check ({s_c}):**")
+            st.dataframe(df_c.head(10), use_container_width=True)
 
     if df_m is not None and df_c is not None:
-        st.sidebar.header("⚙️ Cài đặt")
+        st.sidebar.header("⚙️ Cấu hình Đối soát")
         k_m = st.sidebar.selectbox("Key (Master):", df_m.columns); k_c = st.sidebar.selectbox("Key (Check):", df_c.columns)
         v_col = st.sidebar.selectbox("Cột Tiền:", df_m.columns); fuz = st.sidebar.checkbox("Bật So khớp mờ"); score = st.sidebar.slider("Độ tương đồng %", 50, 100, 85)/100
         if st.button("🚀 Thực hiện đối soát"):
@@ -172,7 +184,7 @@ elif menu == "🔍 Đối soát & So khớp mờ":
                 st.download_button("📥 Tải báo cáo đối soát", out_ds.getvalue(), "Bao_cao_doi_soat.xlsx")
             except Exception as e: st.error(f"Lỗi đối soát: {e}")
 
-# --- MODULE 3: SỬA LỖI FONT (GIỮ NGUYÊN) ---
+# --- MODULE 3: SỬA LỖI FONT ---
 elif menu == "🛠️ Tiện ích Sửa lỗi Font":
     st.title("🛠️ Chuẩn hóa Font Tiếng Việt")
     f_f = st.file_uploader("Tải file cần sửa font", type=["xlsx"], key="font")
@@ -181,11 +193,11 @@ elif menu == "🛠️ Tiện ích Sửa lỗi Font":
         df_f = pd.read_excel(f_f, sheet_name=s_f); st.dataframe(df_f.head(10)); target = st.multiselect("Chọn cột cần sửa:", df_f.columns)
         if st.button("🚀 Chạy chuẩn hóa"):
             for c in target: df_f[c] = df_f[c].apply(fix_vietnamese_font)
-            st.success("Đã chuẩn hóa!"); st.dataframe(df_f.head(10))
+            st.success("Đã chuẩn hóa font!"); st.dataframe(df_f.head(10))
             out_f = BytesIO(); df_f.to_excel(out_f, index=False)
-            st.download_button("📥 Tải file đã sửa", out_f.getvalue(), "Fixed_Font.xlsx")
+            st.download_button("📥 Tải file sạch", out_f.getvalue(), "Fixed_Font.xlsx")
 
-# --- MODULE 4: TÁCH FILE ZIP (GIỮ NGUYÊN) ---
+# --- MODULE 4: TÁCH FILE ZIP ---
 elif menu == "📂 Tách File hàng loạt (ZIP)":
     st.title("📂 Tách File ZIP hàng loạt")
     f_s = st.file_uploader("Tải file cần tách", type=["xlsx"], key="split")
@@ -197,5 +209,5 @@ elif menu == "📂 Tách File hàng loạt (ZIP)":
             with zipfile.ZipFile(zip_buf, "a", zipfile.ZIP_DEFLATED, False) as zf:
                 for v in vals:
                     df_v = df_s[df_s[split_col] == v]; buf = BytesIO(); df_v.to_excel(buf, index=False)
-                    zf.writestr(f"{v}.xlsx", buf.getvalue())
-            st.success("Đã tách xong!"); st.download_button("📥 Tải ZIP", zip_buf.getvalue(), "Files_Tach.zip")
+                    zf.writestr(f"{val}.xlsx", buf.getvalue())
+            st.success("Hoàn tất!"); st.download_button("📥 Tải ZIP", zip_buf.getvalue(), "Files_Tach.zip")
