@@ -8,18 +8,22 @@ import difflib
 import unicodedata
 import zipfile
 
-# --- 1. CẤU HÌNH GIAO DIỆN (BẢO TRÌ SIDEBAR XANH NHẠT) ---
-st.set_page_config(page_title="Excel Hub Pro v19", layout="wide", page_icon="🚀")
+# --- 1. CẤU HÌNH GIAO DIỆN (BẢO TRÌ SIDEBAR XANH NHẠT & CSS) ---
+st.set_page_config(page_title="Excel Hub Pro v20", layout="wide", page_icon="🚀")
 
 def apply_custom_css():
     st.markdown("""
     <style>
     .stApp { background-color: #f8fafc; }
+    /* Sidebar Xanh nhạt */
     [data-testid="stSidebar"] { background-color: #e0f2fe; border-right: 1px solid #bae6fd; }
     [data-testid="stSidebar"] * { color: #0369a1 !important; }
+    /* Expander chuyên nghiệp */
     div[data-testid="stExpander"] { border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-radius: 12px; background: white; margin-bottom: 20px; }
+    /* Nút bấm Pro */
     .stButton>button { border-radius: 12px; width: 100%; height: 45px; background-color: #0284c7; color: white; border: none; font-weight: 600; transition: 0.3s; }
     .stButton>button:hover { background-color: #0369a1; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3); }
+    /* KPI Cards */
     .kpi-container { display: flex; gap: 20px; margin-bottom: 25px; }
     .kpi-card { flex: 1; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); text-align: center; border-bottom: 4px solid #0284c7; }
     .kpi-card h3 { color: #64748b; font-size: 0.9rem; margin-bottom: 5px; }
@@ -30,7 +34,7 @@ def apply_custom_css():
 apply_custom_css()
 
 # --- 2. HỆ THỐNG CỐT LÕI & BỘ NHỚ TẠM ---
-CONFIG_FILE = "excel_profiles_v19.json"
+CONFIG_FILE = "excel_profiles_v20.json"
 def load_profiles():
     if os.path.exists(CONFIG_FILE):
         try:
@@ -42,7 +46,6 @@ def save_profiles(profiles):
     with open(CONFIG_FILE, "w", encoding="utf-8") as f: json.dump(profiles, f, ensure_ascii=False, indent=4)
 
 if 'profiles' not in st.session_state: st.session_state['profiles'] = load_profiles()
-# KHỞI TẠO BỘ NHỚ TẠM ĐỂ CHỐNG RESET
 if 'unpivot_result' not in st.session_state: st.session_state['unpivot_result'] = None
 
 def find_fuzzy_match(name, choices, cutoff=0.6):
@@ -75,7 +78,7 @@ def run_unpivot(df, h_rows, id_col, d_start, sheet_name=None):
 with st.sidebar:
     st.title("🚀 Excel Master Hub")
     st.markdown("---")
-    menu = st.radio("Nghiệp vụ:", [
+    menu = st.sidebar.radio("Nghiệp vụ:", [
         "🔄 Unpivot & Dashboard", 
         "🔍 Đối soát & So khớp mờ", 
         "🛠️ Tiện ích Sửa lỗi Font",
@@ -84,25 +87,40 @@ with st.sidebar:
 
 # --- MODULE 1: UNPIVOT & DASHBOARD ---
 if menu == "🔄 Unpivot & Dashboard":
-    st.title("🔄 Unpivot Ma trận & Dashboard")
+    st.title("🔄 Unpivot & Dashboard")
     with st.expander("📖 Hướng dẫn sử dụng", expanded=False):
-        st.write("Tải file -> Chỉnh cấu hình tại Sidebar -> Chạy -> Dữ liệu sẽ được khóa lại để bạn xem biểu đồ.")
+        st.write("Tải file -> Hệ thống tự gợi ý Profile -> Chỉnh cấu hình tại Sidebar -> Chạy -> Xem biểu đồ.")
 
     file_up = st.file_uploader("Tải file Excel ma trận", type=["xlsx", "xls"], key="unp")
     
-    # Reset kết quả nếu upload file mới
     if file_up:
         xl = pd.ExcelFile(file_up); sheet_names = xl.sheet_names
+        
+        # --- TÍNH NĂNG MỚI: TỰ ĐỘNG GỢI Ý PROFILE DỰA TRÊN TÊN FILE ---
+        filename = file_up.name.lower()
+        profile_list = list(st.session_state['profiles'].keys())
+        default_idx = 0
+        for i, p_name in enumerate(profile_list):
+            if p_name.lower() in filename: # Nếu tên Profile xuất hiện trong tên file
+                default_idx = i
+                st.sidebar.info(f"💡 Gợi ý Profile: {p_name}")
+                break
+
         with st.sidebar:
             st.header("⚙️ Cấu hình Unpivot")
-            sel_p_cfg = st.selectbox("Sử dụng Profile:", list(st.session_state['profiles'].keys()))
+            sel_p_cfg = st.selectbox("Sử dụng Profile:", profile_list, index=default_idx)
             cfg = st.session_state['profiles'][sel_p_cfg]
             h_r = st.number_input("Số hàng tiêu đề:", value=cfg['h_rows'], min_value=0)
             i_c = st.number_input("Cột Tên (A=0, B=1...):", value=cfg['id_col'], min_value=0)
             d_s = st.number_input("Dòng bắt đầu dữ liệu:", value=cfg['d_start'], min_value=1)
+            
+            st.markdown("---")
+            new_p_name = st.text_input("Lưu cấu hình mới:")
             if st.button("💾 Lưu Profile"):
-                name = st.text_input("Tên cấu hình:"); st.session_state['profiles'][name] = {"h_rows": h_r, "id_col": i_c, "d_start": d_s}
-                save_profiles(st.session_state['profiles'])
+                if new_p_name:
+                    st.session_state['profiles'][new_p_name] = {"h_rows": h_r, "id_col": i_c, "d_start": d_s}
+                    save_profiles(st.session_state['profiles'])
+                    st.success(f"Đã lưu: {new_p_name}")
 
         mode = st.radio("Chế độ:", ["Xử lý 1 Sheet (Preview)", "Xử lý Toàn bộ Sheet (Gộp)"], horizontal=True)
         
@@ -117,7 +135,7 @@ if menu == "🔄 Unpivot & Dashboard":
                 all_res = [run_unpivot(pd.read_excel(file_up, s, header=None), h_r, i_c, d_s, s) for s in sheet_names]
                 st.session_state['unpivot_result'] = pd.concat([r for r in all_res if r is not None], ignore_index=True)
 
-        # HIỂN THỊ KẾT QUẢ TỪ SESSION STATE (CHỐNG RESET)
+        # BỘ NHỚ TẠM CHỐNG RESET (BẢO TỒN TỪ V19)
         if st.session_state['unpivot_result'] is not None:
             res = st.session_state['unpivot_result']
             st.markdown(f"""<div class="kpi-container">
@@ -136,7 +154,7 @@ if menu == "🔄 Unpivot & Dashboard":
             out = BytesIO(); res.to_excel(out, index=False)
             st.download_button("📥 Tải kết quả Unpivot (.xlsx)", out.getvalue(), "Unpivot_Final.xlsx")
 
-# --- MODULE 2: ĐỐI SOÁT (BẢO TRÌ 100% PREVIEW) ---
+# --- MODULE 2: ĐỐI SOÁT (BẢO TRÌ PREVIEW SONG SONG) ---
 elif menu == "🔍 Đối soát & So khớp mờ":
     st.title("🔍 Đối soát dữ liệu thông minh")
     col1, col2 = st.columns(2)
@@ -155,7 +173,7 @@ elif menu == "🔍 Đối soát & So khớp mờ":
     if df_m is not None and df_c is not None:
         st.sidebar.header("⚙️ Cài đặt Đối soát")
         k_m = st.sidebar.selectbox("Key (Master):", df_m.columns); k_c = st.sidebar.selectbox("Key (Check):", df_c.columns)
-        v_col = st.sidebar.selectbox("Số tiền:", df_m.columns); fuz = st.sidebar.checkbox("So khớp mờ"); score = st.sidebar.slider("% Tương đồng", 50, 100, 85)/100
+        v_col = st.sidebar.selectbox("Số tiền:", df_m.columns); fuz = st.sidebar.checkbox("Bật Fuzzy"); score = st.sidebar.slider("% Tương đồng", 50, 100, 85)/100
         if st.button("🚀 Thực hiện đối soát"):
             if fuz:
                 mapping = {k: find_fuzzy_match(k, df_c[k_c].tolist(), score) for k in df_m[k_m].tolist()}
@@ -168,11 +186,11 @@ elif menu == "🔍 Đối soát & So khớp mờ":
             merged['Chênh lệch'] = merged[cg] - merged[ct]
             st.dataframe(merged.style.applymap(lambda x: 'background-color: #ffcccc' if x != 0 else '', subset=['Chênh lệch']), use_container_width=True)
             out_ds = BytesIO(); merged.to_excel(out_ds, index=False)
-            st.download_button("📥 Tải báo cáo", out_ds.getvalue(), "Doi_soat.xlsx")
+            st.download_button("📥 Tải báo cáo (.xlsx)", out_ds.getvalue(), "Bao_cao_doi_soat.xlsx")
 
 # --- CÁC MODULE KHÁC (BẢO TỒN 100%) ---
 elif menu == "🛠️ Tiện ích Sửa lỗi Font":
-    st.title("🛠️ Sửa lỗi Font")
+    st.title("🛠️ Chuẩn hóa Font")
     f_f = st.file_uploader("Tải file", type=["xlsx"], key="font")
     if f_f:
         df_f = pd.read_excel(f_f); st.dataframe(df_f.head(10)); target = st.multiselect("Cột cần sửa:", df_f.columns)
