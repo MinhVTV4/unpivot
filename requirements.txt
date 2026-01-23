@@ -3,5 +3,4 @@ pandas
 openpyxl
 xlsxwriter
 plotly
-streamlit-lottie
-requests
+
