@@ -9,28 +9,70 @@ import unicodedata
 import zipfile
 
 # --- 1. CẤU HÌNH GIAO DIỆN (CSS CUSTOM) ---
-st.set_page_config(page_title="Excel Hub Pro v17", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="Excel Hub Pro v18", layout="wide", page_icon="🚀")
 
 def apply_custom_css():
     st.markdown("""
     <style>
-    .stApp { background-color: #f1f3f6; }
-    [data-testid="stSidebar"] { background-color: #111827; color: white; }
-    [data-testid="stSidebar"] * { color: white !important; }
-    div[data-testid="stExpander"] { border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-radius: 12px; background: white; margin-bottom: 20px; }
-    .stButton>button { border-radius: 12px; width: 100%; height: 45px; background-color: #2563eb; color: white; border: none; font-weight: 600; transition: 0.3s; }
-    .stButton>button:hover { background-color: #1d4ed8; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+    /* Nền chính của ứng dụng */
+    .stApp { background-color: #f8fafc; }
+    
+    /* --- ĐỔI MÀU SIDEBAR SANG XANH NHẠT --- */
+    [data-testid="stSidebar"] { 
+        background-color: #e0f2fe; /* Màu xanh nhạt (Sky 100) */
+        border-right: 1px solid #bae6fd;
+    }
+    /* Đổi màu chữ trong Sidebar thành màu tối để dễ đọc trên nền xanh nhạt */
+    [data-testid="stSidebar"] * { 
+        color: #0369a1 !important; 
+    }
+    
+    /* Tùy chỉnh các khối nội dung */
+    div[data-testid="stExpander"] { 
+        border: none; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+        border-radius: 12px; 
+        background: white; 
+        margin-bottom: 20px; 
+    }
+    
+    /* Nút bấm chuyên nghiệp */
+    .stButton>button { 
+        border-radius: 12px; 
+        width: 100%; 
+        height: 45px; 
+        background-color: #0284c7; 
+        color: white; 
+        border: none; 
+        font-weight: 600; 
+        transition: 0.3s; 
+    }
+    .stButton>button:hover { 
+        background-color: #0369a1; 
+        transform: translateY(-2px); 
+        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3); 
+    }
+    
+    /* Thẻ KPI */
     .kpi-container { display: flex; gap: 20px; margin-bottom: 25px; }
-    .kpi-card { flex: 1; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); text-align: center; border-bottom: 4px solid #2563eb; }
+    .kpi-card { 
+        flex: 1; 
+        background: white; 
+        padding: 20px; 
+        border-radius: 15px; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.02); 
+        text-align: center; 
+        border-bottom: 4px solid #0284c7; 
+    }
     .kpi-card h3 { color: #64748b; font-size: 0.9rem; margin-bottom: 5px; }
-    .kpi-card h2 { color: #1e293b; font-size: 1.8rem; margin: 0; }
+    .kpi-card h2 { color: #0c4a6e; font-size: 1.8rem; margin: 0; }
     </style>
     """, unsafe_allow_html=True)
 
 apply_custom_css()
 
 # --- 2. HỆ THỐNG CỐT LÕI ---
-CONFIG_FILE = "excel_profiles_v17.json"
+CONFIG_FILE = "excel_profiles_v18.json"
 def load_profiles():
     if os.path.exists(CONFIG_FILE):
         try:
@@ -84,25 +126,24 @@ with st.sidebar:
 if menu == "🔄 Unpivot & Dashboard":
     st.title("🔄 Unpivot & Dashboard Phân tích")
     with st.expander("📖 Hướng dẫn sử dụng", expanded=False):
-        st.write("Tải file -> Cấu hình hàng/cột tại Sidebar -> Chọn chế độ xử lý -> Xem Dashboard và Tải file.")
+        st.write("Tải file -> Chỉnh cấu hình tại Sidebar -> Chọn chế độ xử lý -> Xem Dashboard và Tải file.")
 
     file_up = st.file_uploader("Tải file Excel ma trận", type=["xlsx", "xls"], key="unp")
     if file_up:
         xl = pd.ExcelFile(file_up); sheet_names = xl.sheet_names
         
-        # --- KHÔI PHỤC PHẦN CẤU HÌNH SIDEBAR ---
         with st.sidebar:
             st.header("⚙️ Cấu hình Unpivot")
             sel_p_cfg = st.selectbox("Sử dụng Profile:", list(st.session_state['profiles'].keys()))
             cfg = st.session_state['profiles'][sel_p_cfg]
             
-            # ĐẶT LẠI CÁC Ô NHẬP LIỆU ĐỂ NGƯỜI DÙNG TÙY CHỈNH
+            # CẤU HÌNH ĐÃ ĐƯỢC BẢO TRÌ
             h_r = st.number_input("Số hàng tiêu đề:", value=cfg['h_rows'], min_value=0)
             i_c = st.number_input("Cột Tên (A=0, B=1...):", value=cfg['id_col'], min_value=0)
             d_s = st.number_input("Dòng bắt đầu dữ liệu:", value=cfg['d_start'], min_value=1)
             
             st.markdown("---")
-            new_p_name = st.text_input("Lưu cấu hình mới với tên:")
+            new_p_name = st.text_input("Lưu cấu hình mới:")
             if st.button("💾 Lưu Profile"):
                 if new_p_name:
                     st.session_state['profiles'][new_p_name] = {"h_rows": h_r, "id_col": i_c, "d_start": d_s}
@@ -122,6 +163,7 @@ if menu == "🔄 Unpivot & Dashboard":
                 res_final = pd.concat([r for r in all_res if r is not None], ignore_index=True)
 
         if res_final is not None:
+            # KPI Cards
             st.markdown(f"""
             <div class="kpi-container">
                 <div class="kpi-card"><h3>Tổng dòng</h3><h2>{len(res_final):,}</h2></div>
@@ -140,28 +182,28 @@ if menu == "🔄 Unpivot & Dashboard":
             out = BytesIO(); res_final.to_excel(out, index=False)
             st.download_button("📥 Tải kết quả Unpivot (.xlsx)", out.getvalue(), "Unpivot_Final.xlsx")
 
-# --- MODULE 2: ĐỐI SOÁT (BẢO TỒN PREVIEW 100%) ---
+# --- MODULE 2: ĐỐI SOÁT (BẢO TRÌ PREVIEW) ---
 elif menu == "🔍 Đối soát & So khớp mờ":
     st.title("🔍 Đối soát dữ liệu thông minh")
     with st.expander("📖 Hướng dẫn Đối soát", expanded=False):
-        st.write("Tải 2 file -> Chọn Sheet để hiện Preview -> Cấu hình Key -> Chạy đối soát.")
+        st.write("Tải 2 file -> Chọn Sheet hiện Preview -> Cấu hình Key -> Chạy đối soát.")
     
     col1, col2 = st.columns(2)
     df_m = df_c = None
     with col1:
         f_m = st.file_uploader("File Master", type=["xlsx"], key="m")
         if f_m:
-            xl_m = pd.ExcelFile(f_m); s_m = st.selectbox("Chọn Sheet Master:", xl_m.sheet_names)
+            xl_m = pd.ExcelFile(f_m); s_m = st.selectbox("Sheet Master:", xl_m.sheet_names)
             df_m = pd.read_excel(f_m, sheet_name=s_m)
             st.markdown(f"**Preview Master ({s_m}):**")
-            st.dataframe(df_m.head(10), use_container_width=True)
+            st.dataframe(df_m.head(10), use_container_width=True) # PREVIEW ĐÃ BẢO TRÌ
     with col2:
         f_c = st.file_uploader("File Đối soát", type=["xlsx"], key="c")
         if f_c:
-            xl_c = pd.ExcelFile(f_c); s_c = st.selectbox("Chọn Sheet Check:", xl_c.sheet_names)
+            xl_c = pd.ExcelFile(f_c); s_c = st.selectbox("Sheet Check:", xl_c.sheet_names)
             df_c = pd.read_excel(f_c, sheet_name=s_c)
             st.markdown(f"**Preview Check ({s_c}):**")
-            st.dataframe(df_c.head(10), use_container_width=True)
+            st.dataframe(df_c.head(10), use_container_width=True) # PREVIEW ĐÃ BẢO TRÌ
 
     if df_m is not None and df_c is not None:
         st.sidebar.header("⚙️ Cấu hình Đối soát")
@@ -187,7 +229,7 @@ elif menu == "🔍 Đối soát & So khớp mờ":
 # --- MODULE 3: SỬA LỖI FONT ---
 elif menu == "🛠️ Tiện ích Sửa lỗi Font":
     st.title("🛠️ Chuẩn hóa Font Tiếng Việt")
-    f_f = st.file_uploader("Tải file cần sửa font", type=["xlsx"], key="font")
+    f_f = st.file_uploader("Tải file", type=["xlsx"], key="font")
     if f_f:
         xl_f = pd.ExcelFile(f_f); s_f = st.selectbox("Chọn Sheet:", xl_f.sheet_names)
         df_f = pd.read_excel(f_f, sheet_name=s_f); st.dataframe(df_f.head(10)); target = st.multiselect("Chọn cột cần sửa:", df_f.columns)
@@ -209,5 +251,5 @@ elif menu == "📂 Tách File hàng loạt (ZIP)":
             with zipfile.ZipFile(zip_buf, "a", zipfile.ZIP_DEFLATED, False) as zf:
                 for v in vals:
                     df_v = df_s[df_s[split_col] == v]; buf = BytesIO(); df_v.to_excel(buf, index=False)
-                    zf.writestr(f"{val}.xlsx", buf.getvalue())
+                    zf.writestr(f"{v}.xlsx", buf.getvalue())
             st.success("Hoàn tất!"); st.download_button("📥 Tải ZIP", zip_buf.getvalue(), "Files_Tach.zip")
